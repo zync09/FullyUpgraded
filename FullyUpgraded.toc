@@ -1,8 +1,9 @@
-## Interface: 100205
+## Interface: 110007
 ## Title: Fully Upgraded
 ## Notes: Displays the number of upgrades available for each gear piece in the character frame
 ## Author: Zyncx (Frostmourne)
-## Version: 1.0
+## Version: 1.0.1
 ## SavedVariables: FullyUpgradedDB
+## IconTexture: Interface\AddOns\FullyUpgraded\Media\icon.blp
 
 FullyUpgraded.lua
