@@ -87,6 +87,20 @@ totalCrestText:SetTextColor(1, 0.8, 0)
 totalCrestText:SetFont(totalCrestText:GetFont(), 11, "OUTLINE")
 totalCrestText:SetJustifyH("RIGHT")
 
+-- Function to check if character tab is selected
+local function IsCharacterTabSelected()
+    return PaperDollFrame:IsVisible()
+end
+
+-- Function to update frame visibility
+local function UpdateFrameVisibility()
+    if IsCharacterTabSelected() then
+        totalCrestFrame:Show()
+    else
+        totalCrestFrame:Hide()
+    end
+end
+
 -- **Fetch Crest Currency Amounts**
 local function CheckCurrencyForAllCrests()
     -- Reset currency counts
@@ -248,12 +262,17 @@ local function UpdateAllUpgradeTexts()
         local crestType = crestData.crestType
         local data = crestData.data
         if data.needed > 0 then
+            --subtract current crests from needed crests and show it as (xx/xx)
+            local remaining = data.needed - data.current
+            local runs = math.ceil(remaining / CRESTS_TO_UPGRADE)
+
             if data.mythicLevel and data.mythicLevel > 0 then
-                totalText = totalText .. string.format("\n%s: %d (M%d+ Runs: %d)", 
+                totalText = totalText .. string.format("\n%s: %d/%d (M%d+ Runs: %d)", 
                     crestType:sub(1,1) .. crestType:sub(2):lower(),
+                    data.current,
                     data.needed,
                     data.mythicLevel,
-                    math.ceil(data.needed / CRESTS_TO_UPGRADE))
+                    math.ceil((data.needed - data.current <= 0) and 0 or (data.needed - data.current) / CRESTS_TO_UPGRADE) )
             else
                 totalText = totalText .. string.format("\n%s: %d",
                     crestType:sub(1,1) .. crestType:sub(2):lower(),
@@ -279,7 +298,23 @@ f:SetScript("OnEvent", function(_, event)
     if event == "PLAYER_ENTERING_WORLD" then
         InitializeUpgradeTexts()
     end
-    UpdateAllUpgradeTexts()
+    if IsCharacterTabSelected() then
+        UpdateAllUpgradeTexts()
+    end
 end)
 
-CharacterFrame:HookScript("OnShow", UpdateAllUpgradeTexts)
+-- Hook to character frame tab changes
+PaperDollFrame:HookScript("OnShow", function()
+    UpdateAllUpgradeTexts()
+    UpdateFrameVisibility()
+end)
+
+PaperDollFrame:HookScript("OnHide", function()
+    UpdateFrameVisibility()
+end)
+
+CharacterFrame:HookScript("OnShow", function()
+    if IsCharacterTabSelected() then
+        UpdateAllUpgradeTexts()
+    end
+end)
