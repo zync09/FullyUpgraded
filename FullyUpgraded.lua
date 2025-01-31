@@ -282,7 +282,7 @@ local function UpdateAllUpgradeTexts()
     end
 
     if totalText ~= "" then
-        totalCrestText:SetText("Total Crests Required:" .. totalText)
+        totalCrestText:SetText("Fully Upgraded:" .. totalText)
         totalCrestText:Show()
     else
         totalCrestText:Hide()
