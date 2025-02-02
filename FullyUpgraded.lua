@@ -3,6 +3,7 @@ addon.f = CreateFrame("Frame") -- Main frame
 local f = addon.f
 
 local CRESTS_TO_UPGRADE = 15
+local CRESTS_CONVERSION_UP = 45
 
 local EQUIPMENT_SLOTS = {
     "HeadSlot", "NeckSlot", "ShoulderSlot", "BackSlot", "ChestSlot",
@@ -14,63 +15,135 @@ local EQUIPMENT_SLOTS = {
 local CURRENCY = {
     CRESTS = {
         WEATHERED = {
+            name = "Weathered Harbinger Crest",
             current = 0,
             needed = 0,
-            mythicLevel = nil,
+            upgraded = 0,
+            mythicLevel = 0,
+            upgradesTo = "CARVED"
         },
         CARVED = {
+            name = "Carved Harbinger Crest",
             current = 0,
             needed = 0,
+            upgraded = 0,
             mythicLevel = 2,
+            upgradesTo = "RUNED"
         },
         RUNED = {
+            name = "Runed Harbinger Crest",
             current = 0,
             needed = 0,
+            upgraded = 0,
             mythicLevel = 4,
+            upgradesTo = "GILDED"
         },
         GILDED = {
+            name = "Gilded Harbinger Crest",
             current = 0,
             needed = 0,
+            upgraded = 0,
             mythicLevel = 8,
-        },
+            upgradesTo = nil
+        }
     }
 }
 
 local UPGRADE_TRACKS = {
     EXPLORER = {
         color = "FFffffff",
-        crest = "Weathered Harbinger Crest",
-        shortname = "Weathered",
-        finalCrest = "Carved Harbinger Crest",
-        upgradeLevels = 8
+        crest = nil,
+        shortname = "Explorer",
+        finalCrest = nil,
+        upgradeLevels = 8,
+        splitUpgrade = {
+            firstTier = {
+                crest = nil,
+                shortname = "Explorer",
+                levels = 8
+            },
+            secondTier = {
+                crest = nil,
+                shortname = "Explorer",
+                levels = 0
+            }
+        }
     },
     VETERAN  = {
         color = "FF1eff00",
         crest = "Weathered Harbinger Crest",
         shortname = "Weathered",
         finalCrest = "Carved Harbinger Crest",
-        upgradeLevels = 8
+        upgradeLevels = 8,
+        splitUpgrade = {
+            firstTier = {
+                crest = "Weathered Harbinger Crest",
+                shortname = "Weathered",
+                levels = 4
+            },
+            secondTier = {
+                crest = "Carved Harbinger Crest",
+                shortname = "Carved",
+                levels = 4
+            }
+        }
     },
     CHAMPION = {
         color = "FF0070dd",
         crest = "Carved Harbinger Crest",
         shortname = "Carved",
         finalCrest = "Runed Harbinger Crest",
-        upgradeLevels = 8
+        upgradeLevels = 8,
+        splitUpgrade = {
+            firstTier = {
+                crest = "Carved Harbinger Crest",
+                shortname = "Carved",
+                levels = 4
+            },
+            secondTier = {
+                crest = "Runed Harbinger Crest",
+                shortname = "Runed",
+                levels = 4
+            }
+        }
     },
     HERO     = {
         color = "FFa335ee",
         crest = "Runed Harbinger Crest",
         shortname = "Runed",
         finalCrest = "Gilded Harbinger Crest",
-        upgradeLevels = 6
+        upgradeLevels = 6,
+        splitUpgrade = {
+            firstTier = {
+                crest = "Runed Harbinger Crest",
+                shortname = "Runed",
+                levels = 4
+            },
+            secondTier = {
+                crest = "Gilded Harbinger Crest",
+                shortname = "Gilded",
+                levels = 2
+            }
+        }
     },
     MYTH     = {
         color = "FFff8000",
         crest = "Gilded Harbinger Crest",
         shortname = "Gilded",
         finalCrest = "Gilded Harbinger Crest",
-        upgradeLevels = 6
+        upgradeLevels = 6,
+        splitUpgrade = {
+            firstTier = {
+                crest = "Gilded Harbinger Crest",
+                shortname = "Gilded",
+                levels = 6
+            },
+            secondTier = {
+                crest = "Gilded Harbinger Crest",
+                shortname = "Gilded",
+                levels = 0
+            }
+        }
     }
 }
 
@@ -98,6 +171,33 @@ local function UpdateFrameVisibility()
         totalCrestFrame:Show()
     else
         totalCrestFrame:Hide()
+    end
+end
+
+-- Ordered list of crest types from lowest to highest tier
+local CREST_ORDER = {"WEATHERED", "CARVED", "RUNED", "GILDED"}
+
+local function CalculateUpgradedCrests()
+    -- Reset upgraded counts
+    for _, crestType in ipairs(CREST_ORDER) do
+        if CURRENCY.CRESTS[crestType] then
+            CURRENCY.CRESTS[crestType].upgraded = 0
+        end
+    end
+
+    -- Calculate upgrades starting from second crest type
+    for i = 2, #CREST_ORDER do
+        local currentType = CREST_ORDER[i]
+        local previousType = CREST_ORDER[i-1]
+        
+        if CURRENCY.CRESTS[currentType] and CURRENCY.CRESTS[previousType] then
+            local currentCrest = CURRENCY.CRESTS[currentType]
+            local previousCrest = CURRENCY.CRESTS[previousType]
+            
+            -- Calculate how many crests can be upgraded from the previous tier
+            local upgradedCount = math.floor(previousCrest.current / CRESTS_CONVERSION_UP)
+            currentCrest.upgraded = upgradedCount
+        end
     end
 end
 
@@ -144,31 +244,37 @@ local function InitializeUpgradeTexts()
 end
 
 -- **Tooltip Setup for Crest Costs**
-local function SetUpgradeTooltip(self, track, remaining)
+local function SetUpgradeTooltip(self, track, remaining, current)
     tooltipFrame:SetOwner(self, "ANCHOR_RIGHT")
     tooltipFrame:AddLine("Upgrade Requirements:")
 
-    local regularCrestCount = math.max(0, (remaining - 2) * CRESTS_TO_UPGRADE)
-    local finalCrestCount = remaining > 2 and (2 * CRESTS_TO_UPGRADE) or (remaining * CRESTS_TO_UPGRADE)
-
-    if regularCrestCount > 0 then
-        local crestType = track.shortname:upper()
-        local mythicText = CURRENCY.CRESTS[crestType].mythicLevel and 
-            string.format(" (M%d+)", CURRENCY.CRESTS[crestType].mythicLevel) or ""
-        tooltipFrame:AddLine(string.format("%d x %s%s", regularCrestCount, track.crest, mythicText))
+    -- Skip crest requirements for Explorer track
+    if not track.crest then
+        tooltipFrame:AddLine("No crests required")
+        tooltipFrame:Show()
+        return
     end
-    
-    if finalCrestCount > 0 then
-        local finalCrestType = ""
-        for _, upgradeTrack in pairs(UPGRADE_TRACKS) do
-            if upgradeTrack.crest == track.finalCrest then
-                finalCrestType = upgradeTrack.shortname:upper()
-                break
-            end
+
+    -- Special handling for tracks with split requirements
+    if track.splitUpgrade then
+        local firstTier = track.splitUpgrade.firstTier
+        local secondTier = track.splitUpgrade.secondTier
+        local remainingFirstTier = math.min(remaining, math.max(0, firstTier.levels - current))
+        local remainingSecondTier = math.max(0, remaining - remainingFirstTier)
+
+        if remainingFirstTier > 0 and firstTier.crest then
+            local crestType = firstTier.shortname:upper()
+            local mythicText = CURRENCY.CRESTS[crestType] and CURRENCY.CRESTS[crestType].mythicLevel > 0 and
+                string.format(" (M%d+)", CURRENCY.CRESTS[crestType].mythicLevel) or ""
+            tooltipFrame:AddLine(string.format("%d x %s%s", remainingFirstTier * CRESTS_TO_UPGRADE, firstTier.crest, mythicText))
         end
-        local mythicText = finalCrestType ~= "" and CURRENCY.CRESTS[finalCrestType].mythicLevel and 
-            string.format(" (M%d+)", CURRENCY.CRESTS[finalCrestType].mythicLevel) or ""
-        tooltipFrame:AddLine(string.format("%d x %s%s", finalCrestCount, track.finalCrest, mythicText))
+
+        if remainingSecondTier > 0 and secondTier.crest then
+            local crestType = secondTier.shortname:upper()
+            local mythicText = CURRENCY.CRESTS[crestType] and CURRENCY.CRESTS[crestType].mythicLevel > 0 and
+                string.format(" (M%d+)", CURRENCY.CRESTS[crestType].mythicLevel) or ""
+            tooltipFrame:AddLine(string.format("%d x %s%s", remainingSecondTier * CRESTS_TO_UPGRADE, secondTier.crest, mythicText))
+        end
     end
 
     tooltipFrame:Show()
@@ -176,6 +282,7 @@ end
 
 -- **Update All Equipment Slots & Crest Totals**
 local function UpdateAllUpgradeTexts()
+    CalculateUpgradedCrests()
     CheckCurrencyForAllCrests()
 
     -- Reset needed counts
@@ -208,31 +315,56 @@ local function UpdateAllUpgradeTexts()
                             text:Show()
 
                             text:SetScript("OnEnter", function(self)
-                                SetUpgradeTooltip(self, track, levelsToUpgrade)
+                                SetUpgradeTooltip(self, track, levelsToUpgrade, tonumber(current))
                             end)
                             text:SetScript("OnLeave", function() tooltipFrame:Hide() end)
 
-                            -- Calculate crests needed
-                            local stdLevelCrestCount = levelsToUpgrade > 2 and (levelsToUpgrade - 2) * CRESTS_TO_UPGRADE or 0
-                            local nextLevelCrestCount = levelsToUpgrade > 2 and (2 * CRESTS_TO_UPGRADE) or (levelsToUpgrade * CRESTS_TO_UPGRADE)
+                            -- Skip crest calculations for Explorer track
+                            if not track.crest then
+                                -- No crest requirements to calculate
+                                text:SetText("|cFFffffff+" .. levelsToUpgrade .. "|r")
+                            elseif track.splitUpgrade then
+                                local firstTier = track.splitUpgrade.firstTier
+                                local secondTier = track.splitUpgrade.secondTier
+                                local currentLevel = tonumber(current)
+                                local remainingFirstTier = math.min(levelsToUpgrade, math.max(0, firstTier.levels - currentLevel))
+                                local remainingSecondTier = math.max(0, levelsToUpgrade - remainingFirstTier)
 
-                            -- Update standard crest counts
-                            if stdLevelCrestCount > 0 then
-                                local crestType = track.shortname:upper()
-                                CURRENCY.CRESTS[crestType].needed = CURRENCY.CRESTS[crestType].needed + stdLevelCrestCount
-                            end
-
-                            -- Update final crest counts
-                            if nextLevelCrestCount > 0 then
-                                local finalCrestType = ""
-                                for _, upgradeTrack in pairs(UPGRADE_TRACKS) do
-                                    if upgradeTrack.crest == track.finalCrest then
-                                        finalCrestType = upgradeTrack.shortname:upper()
-                                        break
-                                    end
+                                if remainingFirstTier > 0 then
+                                    local crestType = firstTier.shortname:upper()
+                                    CURRENCY.CRESTS[crestType].needed = CURRENCY.CRESTS[crestType].needed + 
+                                        (remainingFirstTier * CRESTS_TO_UPGRADE)
                                 end
-                                if finalCrestType ~= "" then
-                                    CURRENCY.CRESTS[finalCrestType].needed = CURRENCY.CRESTS[finalCrestType].needed + nextLevelCrestCount
+
+                                if remainingSecondTier > 0 then
+                                    local crestType = secondTier.shortname:upper()
+                                    CURRENCY.CRESTS[crestType].needed = CURRENCY.CRESTS[crestType].needed + 
+                                        (remainingSecondTier * CRESTS_TO_UPGRADE)
+                                end
+                            else
+                                -- Original logic for other tracks
+                                -- Calculate crests needed
+                                local stdLevelCrestCount = levelsToUpgrade > 2 and (levelsToUpgrade - 2) * CRESTS_TO_UPGRADE or 0
+                                local nextLevelCrestCount = levelsToUpgrade > 2 and (2 * CRESTS_TO_UPGRADE) or (levelsToUpgrade * CRESTS_TO_UPGRADE)
+
+                                -- Update standard crest counts
+                                if stdLevelCrestCount > 0 then
+                                    local crestType = track.shortname:upper()
+                                    CURRENCY.CRESTS[crestType].needed = CURRENCY.CRESTS[crestType].needed + stdLevelCrestCount
+                                end
+
+                                -- Update final crest counts
+                                if nextLevelCrestCount > 0 then
+                                    local finalCrestType = ""
+                                    for _, upgradeTrack in pairs(UPGRADE_TRACKS) do
+                                        if upgradeTrack.crest == track.finalCrest then
+                                            finalCrestType = upgradeTrack.shortname:upper()
+                                            break
+                                        end
+                                    end
+                                    if finalCrestType ~= "" then
+                                        CURRENCY.CRESTS[finalCrestType].needed = CURRENCY.CRESTS[finalCrestType].needed + nextLevelCrestCount
+                                    end
                                 end
                             end
                         else
@@ -252,7 +384,7 @@ local function UpdateAllUpgradeTexts()
     local sortedCrests = {}
     for crestType, data in pairs(CURRENCY.CRESTS) do
         if data.needed > 0 then
-            sortedCrests[#sortedCrests + 1] = {crestType = crestType, data = data}
+            sortedCrests[#sortedCrests + 1] = { crestType = crestType, data = data }
         end
     end
     table.sort(sortedCrests, function(a, b) return a.data.mythicLevel < b.data.mythicLevel end)
@@ -264,19 +396,34 @@ local function UpdateAllUpgradeTexts()
         if data.needed > 0 then
             --subtract current crests from needed crests and show it as (xx/xx)
             local remaining = data.needed - data.current
-            local runs = math.ceil(remaining / CRESTS_TO_UPGRADE)
+            local potentialExtra = data.upgraded * CRESTS_TO_UPGRADE
+            local upgradedText = data.upgraded and data.upgraded > 0 
+                and string.format(" [+%d P.Tier]", potentialExtra)
+                or ""
 
             if data.mythicLevel and data.mythicLevel > 0 then
-                totalText = totalText .. string.format("\n%s: %d/%d (M%d+ Runs: %d)", 
+                local currentRuns = math.max(0, math.ceil(remaining / CRESTS_TO_UPGRADE))
+                local potentialRuns = math.max(0, math.ceil((remaining - potentialExtra) / CRESTS_TO_UPGRADE))
+                
+                local runsText
+                if potentialRuns > 0 and potentialRuns < currentRuns then
+                    runsText = string.format("M%d+ Runs: [%d]/%d", data.mythicLevel, potentialRuns, currentRuns)
+                else
+                    runsText = string.format("M%d+ Runs: %d", data.mythicLevel, currentRuns)
+                end
+                
+                totalText = totalText .. string.format("\n%s: %d/%d%s (%s)",
                     crestType:sub(1,1) .. crestType:sub(2):lower(),
                     data.current,
                     data.needed,
-                    data.mythicLevel,
-                    math.ceil((data.needed - data.current <= 0) and 0 or (data.needed - data.current) / CRESTS_TO_UPGRADE) )
+                    upgradedText,
+                    runsText)
             else
-                totalText = totalText .. string.format("\n%s: %d",
+                totalText = totalText .. string.format("\n%s: %d/%d%s",
                     crestType:sub(1,1) .. crestType:sub(2):lower(),
-                    data.needed)
+                    data.current,
+                    data.needed,
+                    upgradedText)
             end
         end
     end
@@ -296,9 +443,11 @@ f:RegisterEvent("PLAYER_ENTERING_WORLD")
 
 f:SetScript("OnEvent", function(_, event)
     if event == "PLAYER_ENTERING_WORLD" then
+        CalculateUpgradedCrests()
         InitializeUpgradeTexts()
     end
     if IsCharacterTabSelected() then
+        CalculateUpgradedCrests()
         UpdateAllUpgradeTexts()
     end
 end)
