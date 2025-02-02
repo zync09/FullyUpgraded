@@ -153,9 +153,9 @@ local totalCrestFrame = CreateFrame("Frame", "GearUpgradeTotalFrame", CharacterF
 local totalCrestText = totalCrestFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 
 totalCrestFrame:SetSize(200, 40)
-totalCrestFrame:SetPoint("BOTTOMRIGHT", CharacterFrame, "BOTTOMRIGHT", -10, 10)
+totalCrestFrame:SetPoint("BOTTOMRIGHT", CharacterFrame, "BOTTOMRIGHT", -3, 3)
 
-totalCrestText:SetPoint("RIGHT", totalCrestFrame, "RIGHT", 0, 0)
+totalCrestText:SetPoint("BOTTOMRIGHT", totalCrestFrame, "BOTTOMRIGHT", 0, 0)
 totalCrestText:SetTextColor(1, 0.8, 0)
 totalCrestText:SetFont(totalCrestText:GetFont(), 11, "OUTLINE")
 totalCrestText:SetJustifyH("RIGHT")
@@ -383,11 +383,36 @@ local function UpdateAllUpgradeTexts()
     --sort in order of mythic level from lowest to highest
     local sortedCrests = {}
     for crestType, data in pairs(CURRENCY.CRESTS) do
-        if data.needed > 0 then
-            sortedCrests[#sortedCrests + 1] = { crestType = crestType, data = data }
+        if data and data.needed and data.needed > 0 then
+            sortedCrests[#sortedCrests + 1] = { 
+                crestType = crestType, 
+                data = {
+                    mythicLevel = data.mythicLevel or 0,
+                    current = data.current or 0,
+                    needed = data.needed or 0,
+                    upgraded = data.upgraded or 0
+                }
+            }
         end
     end
-    table.sort(sortedCrests, function(a, b) return a.data.mythicLevel < b.data.mythicLevel end)
+    
+    -- Sort with additional safety checks
+    table.sort(sortedCrests, function(a, b)
+        -- Ensure we have valid data tables
+        if not a or not b or not a.data or not b.data then
+            return false
+        end
+        
+        -- Get mythic levels with fallback to 0
+        local aLevel = tonumber(a.data.mythicLevel) or 0
+        local bLevel = tonumber(b.data.mythicLevel) or 0
+        
+        if aLevel == bLevel then
+            -- If mythic levels are equal, sort by crest type
+            return tostring(a.crestType) < tostring(b.crestType)
+        end
+        return aLevel < bLevel
+    end)
 
     local totalText = ""
     for _, crestData in ipairs(sortedCrests) do
