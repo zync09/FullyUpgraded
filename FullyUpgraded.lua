@@ -149,21 +149,38 @@ local UPGRADE_TRACKS = {
 
 local upgradeTextPool = {}
 local tooltipFrame = CreateFrame("GameTooltip", "GearUpgradeTooltip", UIParent, "GameTooltipTemplate")
-local totalCrestFrame = CreateFrame("Frame", "GearUpgradeTotalFrame", CharacterFrame)
+local totalCrestFrame = CreateFrame("Frame", "GearUpgradeTotalFrame", CharacterFrame, "BackdropTemplate")
 local totalCrestText = totalCrestFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 
-totalCrestFrame:SetSize(200, 40)
-totalCrestFrame:SetPoint("BOTTOMRIGHT", CharacterFrame, "BOTTOMRIGHT", -3, 3)
+totalCrestFrame:SetSize(250, 65)
+totalCrestFrame:SetPoint("TOPRIGHT", CharacterFrame, "BOTTOMRIGHT", 0, 0)
+totalCrestFrame:SetBackdrop({
+    bgFile = "Interface/Buttons/WHITE8x8",
+    edgeFile = "Interface/Buttons/WHITE8x8",
+    tile = true,
+    tileSize = 8,
+    edgeSize = 2,
+})
+totalCrestFrame:SetBackdropColor(0.1, 0.1, 0.1, 0.9)
+totalCrestFrame:SetBackdropBorderColor(0, 0, 0, 1)
 
-totalCrestText:SetPoint("BOTTOMRIGHT", totalCrestFrame, "BOTTOMRIGHT", 0, 0)
+totalCrestText:SetPoint("CENTER", totalCrestFrame, "CENTER", 0, 0)
 totalCrestText:SetTextColor(1, 0.8, 0)
-totalCrestText:SetFont(totalCrestText:GetFont(), 11, "OUTLINE")
+totalCrestText:SetFont(totalCrestText:GetFont(), 12, "OUTLINE")
 totalCrestText:SetJustifyH("RIGHT")
+
+
 
 -- Function to check if character tab is selected
 local function IsCharacterTabSelected()
     return PaperDollFrame:IsVisible()
 end
+
+local function UpdateFrameSizeToText()
+    totalCrestFrame:SetSize(totalCrestFrame:GetWidth(), totalCrestText:GetStringHeight() + 10)
+end
+
+UpdateFrameSizeToText()
 
 -- Function to update frame visibility
 local function UpdateFrameVisibility()
@@ -232,7 +249,7 @@ local function CreateUpgradeText(slot)
     text:SetPoint("TOPRIGHT", slotFrame, "TOPRIGHT", 6, 2)
     text:SetJustifyH("RIGHT")
     text:SetDrawLayer("OVERLAY", 7)
-    text:SetFont(text:GetFont(), 14, "OUTLINE, THICKOUTLINE")
+    text:SetFont(text:GetFont(), 12, "OUTLINE, THICKOUTLINE")
     return text
 end
 
@@ -308,10 +325,12 @@ local function UpdateAllUpgradeTexts()
                         local trackUpper = trackName:upper()
                         local levelsToUpgrade = tonumber(max) - tonumber(current)
                         local track = UPGRADE_TRACKS[trackUpper]
+                        --get first letter of track name
+                        local trackName = trackUpper:sub(1, 1)
 
                         -- Update the UI text and tooltip
                         if track and levelsToUpgrade > 0 then
-                            text:SetText("|cFFffffff+" .. levelsToUpgrade .. "|r")
+                            text:SetText("|cFFffffff+" .. levelsToUpgrade .. trackName .."|r")
                             text:Show()
 
                             text:SetScript("OnEnter", function(self)
@@ -459,6 +478,8 @@ local function UpdateAllUpgradeTexts()
     else
         totalCrestText:Hide()
     end
+
+    UpdateFrameSizeToText()
 end
 
 -- **Event Handling**
