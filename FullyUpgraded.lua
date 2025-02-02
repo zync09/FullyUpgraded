@@ -169,7 +169,16 @@ totalCrestText:SetTextColor(1, 0.8, 0)
 totalCrestText:SetFont(totalCrestText:GetFont(), 12, "OUTLINE")
 totalCrestText:SetJustifyH("RIGHT")
 
+-- Add after other local variables
+local TEXT_POSITIONS = {
+    TR = { point = "TOPRIGHT", x = 6, y = 2 },
+    TL = { point = "TOPLEFT", x = -6, y = 2 },
+    BR = { point = "BOTTOMRIGHT", x = 6, y = -2 },
+    BL = { point = "BOTTOMLEFT", x = -6, y = -2 },
+    C = { point = "CENTER", x = 0, y = 0 },
+}
 
+local currentTextPos = "TR" -- Default position
 
 -- Function to check if character tab is selected
 local function IsCharacterTabSelected()
@@ -246,7 +255,8 @@ local function CreateUpgradeText(slot)
     if not slotFrame then return end
 
     local text = slotFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    text:SetPoint("TOPRIGHT", slotFrame, "TOPRIGHT", 6, 2)
+    local posData = TEXT_POSITIONS[currentTextPos]
+    text:SetPoint(posData.point, slotFrame, posData.point, posData.x, posData.y)
     text:SetJustifyH("RIGHT")
     text:SetDrawLayer("OVERLAY", 7)
     text:SetFont(text:GetFont(), 12, "OUTLINE, THICKOUTLINE")
@@ -513,3 +523,39 @@ CharacterFrame:HookScript("OnShow", function()
         UpdateAllUpgradeTexts()
     end
 end)
+
+-- Function to update text position for all slots
+local function UpdateTextPositions(position)
+    if not TEXT_POSITIONS[position] then return end
+    
+    currentTextPos = position
+    local posData = TEXT_POSITIONS[position]
+    
+    for _, text in pairs(upgradeTextPool) do
+        if text then
+            text:ClearAllPoints()
+            text:SetPoint(posData.point, text:GetParent(), posData.point, posData.x, posData.y)
+        end
+    end
+end
+
+-- Add slash command handler
+SLASH_FULLYUPGRADED1 = "/fullyupgraded"
+SLASH_FULLYUPGRADED2 = "/fu"
+SlashCmdList["FULLYUPGRADED"] = function(msg)
+    local cmd, arg = msg:match("^(%S*)%s*(.-)$")
+    cmd = cmd:lower()
+    arg = arg:upper()
+
+    if cmd == "textpos" then
+        if TEXT_POSITIONS[arg] then
+            UpdateTextPositions(arg)
+            print("|cFFFFFF00FullyUpgraded:|r Text position set to " .. arg)
+        else
+            print("|cFFFFFF00FullyUpgraded:|r Valid positions: TR (Top Right), TL (Top Left), BR (Bottom Right), BL (Bottom Left), C (Center)")
+        end
+    else
+        print("|cFFFFFF00FullyUpgraded commands:|r")
+        print("  /fu textpos <position> - Set text position (TR/TL/BR/BL/C)")
+    end
+end
