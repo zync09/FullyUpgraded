@@ -5,6 +5,9 @@ local f = addon.f
 local CRESTS_TO_UPGRADE = 15
 local CRESTS_CONVERSION_UP = 45
 
+local SEASON_ILVL_MIN = 584
+local SEASON_ILVL_MAX = 639
+
 local EQUIPMENT_SLOTS = {
     "HeadSlot", "NeckSlot", "ShoulderSlot", "BackSlot", "ChestSlot",
     "WristSlot", "HandsSlot", "WaistSlot", "LegsSlot", "FeetSlot",
@@ -164,7 +167,7 @@ totalCrestFrame:SetBackdrop({
 totalCrestFrame:SetBackdropColor(0.1, 0.1, 0.1, 0.9)
 totalCrestFrame:SetBackdropBorderColor(0, 0, 0, 1)
 
-totalCrestText:SetPoint("CENTER", totalCrestFrame, "CENTER", 0, 0)
+totalCrestText:SetPoint("BOTTOMRIGHT", totalCrestFrame, "BOTTOMRIGHT", -2, 5)
 totalCrestText:SetTextColor(1, 0.8, 0)
 totalCrestText:SetFont(totalCrestText:GetFont(), 12, "OUTLINE")
 totalCrestText:SetJustifyH("RIGHT")
@@ -201,7 +204,7 @@ local function UpdateFrameVisibility()
 end
 
 -- Ordered list of crest types from lowest to highest tier
-local CREST_ORDER = {"WEATHERED", "CARVED", "RUNED", "GILDED"}
+local CREST_ORDER = { "WEATHERED", "CARVED", "RUNED", "GILDED" }
 
 local function CalculateUpgradedCrests()
     -- Reset upgraded counts
@@ -214,12 +217,12 @@ local function CalculateUpgradedCrests()
     -- Calculate upgrades starting from second crest type
     for i = 2, #CREST_ORDER do
         local currentType = CREST_ORDER[i]
-        local previousType = CREST_ORDER[i-1]
-        
+        local previousType = CREST_ORDER[i - 1]
+
         if CURRENCY.CRESTS[currentType] and CURRENCY.CRESTS[previousType] then
             local currentCrest = CURRENCY.CRESTS[currentType]
             local previousCrest = CURRENCY.CRESTS[previousType]
-            
+
             -- Calculate how many crests can be upgraded from the previous tier
             local upgradedCount = math.floor(previousCrest.current / CRESTS_CONVERSION_UP)
             currentCrest.upgraded = upgradedCount
@@ -293,14 +296,16 @@ local function SetUpgradeTooltip(self, track, remaining, current)
             local crestType = firstTier.shortname:upper()
             local mythicText = CURRENCY.CRESTS[crestType] and CURRENCY.CRESTS[crestType].mythicLevel > 0 and
                 string.format(" (M%d+)", CURRENCY.CRESTS[crestType].mythicLevel) or ""
-            tooltipFrame:AddLine(string.format("%d x %s%s", remainingFirstTier * CRESTS_TO_UPGRADE, firstTier.crest, mythicText))
+            tooltipFrame:AddLine(string.format("%d x %s%s", remainingFirstTier * CRESTS_TO_UPGRADE, firstTier.crest,
+                mythicText))
         end
 
         if remainingSecondTier > 0 and secondTier.crest then
             local crestType = secondTier.shortname:upper()
             local mythicText = CURRENCY.CRESTS[crestType] and CURRENCY.CRESTS[crestType].mythicLevel > 0 and
                 string.format(" (M%d+)", CURRENCY.CRESTS[crestType].mythicLevel) or ""
-            tooltipFrame:AddLine(string.format("%d x %s%s", remainingSecondTier * CRESTS_TO_UPGRADE, secondTier.crest, mythicText))
+            tooltipFrame:AddLine(string.format("%d x %s%s", remainingSecondTier * CRESTS_TO_UPGRADE, secondTier.crest,
+                mythicText))
         end
     end
 
@@ -328,7 +333,9 @@ local function UpdateAllUpgradeTexts()
             local effectiveILvl = select(4, C_Item.GetItemInfo(itemLink))
             local tooltipData = C_TooltipInfo.GetInventoryItem("player", slotID)
 
-            if effectiveILvl and tooltipData then
+            -- Only process items within the season's item level range
+            if effectiveILvl and tooltipData and
+                effectiveILvl >= SEASON_ILVL_MIN then
                 for _, line in ipairs(tooltipData.lines) do
                     local trackName, current, max = line.leftText:match("Upgrade Level: (%w+) (%d+)/(%d+)")
                     if trackName then
@@ -340,7 +347,7 @@ local function UpdateAllUpgradeTexts()
 
                         -- Update the UI text and tooltip
                         if track and levelsToUpgrade > 0 then
-                            text:SetText("|cFFffffff+" .. levelsToUpgrade .. trackName .."|r")
+                            text:SetText("|cFFffffff+" .. levelsToUpgrade .. trackName .. "|r")
                             text:Show()
 
                             text:SetScript("OnEnter", function(self)
@@ -356,30 +363,34 @@ local function UpdateAllUpgradeTexts()
                                 local firstTier = track.splitUpgrade.firstTier
                                 local secondTier = track.splitUpgrade.secondTier
                                 local currentLevel = tonumber(current)
-                                local remainingFirstTier = math.min(levelsToUpgrade, math.max(0, firstTier.levels - currentLevel))
+                                local remainingFirstTier = math.min(levelsToUpgrade,
+                                    math.max(0, firstTier.levels - currentLevel))
                                 local remainingSecondTier = math.max(0, levelsToUpgrade - remainingFirstTier)
 
                                 if remainingFirstTier > 0 then
                                     local crestType = firstTier.shortname:upper()
-                                    CURRENCY.CRESTS[crestType].needed = CURRENCY.CRESTS[crestType].needed + 
+                                    CURRENCY.CRESTS[crestType].needed = CURRENCY.CRESTS[crestType].needed +
                                         (remainingFirstTier * CRESTS_TO_UPGRADE)
                                 end
 
                                 if remainingSecondTier > 0 then
                                     local crestType = secondTier.shortname:upper()
-                                    CURRENCY.CRESTS[crestType].needed = CURRENCY.CRESTS[crestType].needed + 
+                                    CURRENCY.CRESTS[crestType].needed = CURRENCY.CRESTS[crestType].needed +
                                         (remainingSecondTier * CRESTS_TO_UPGRADE)
                                 end
                             else
                                 -- Original logic for other tracks
                                 -- Calculate crests needed
-                                local stdLevelCrestCount = levelsToUpgrade > 2 and (levelsToUpgrade - 2) * CRESTS_TO_UPGRADE or 0
-                                local nextLevelCrestCount = levelsToUpgrade > 2 and (2 * CRESTS_TO_UPGRADE) or (levelsToUpgrade * CRESTS_TO_UPGRADE)
+                                local stdLevelCrestCount = levelsToUpgrade > 2 and
+                                (levelsToUpgrade - 2) * CRESTS_TO_UPGRADE or 0
+                                local nextLevelCrestCount = levelsToUpgrade > 2 and (2 * CRESTS_TO_UPGRADE) or
+                                (levelsToUpgrade * CRESTS_TO_UPGRADE)
 
                                 -- Update standard crest counts
                                 if stdLevelCrestCount > 0 then
                                     local crestType = track.shortname:upper()
-                                    CURRENCY.CRESTS[crestType].needed = CURRENCY.CRESTS[crestType].needed + stdLevelCrestCount
+                                    CURRENCY.CRESTS[crestType].needed = CURRENCY.CRESTS[crestType].needed +
+                                    stdLevelCrestCount
                                 end
 
                                 -- Update final crest counts
@@ -392,7 +403,8 @@ local function UpdateAllUpgradeTexts()
                                         end
                                     end
                                     if finalCrestType ~= "" then
-                                        CURRENCY.CRESTS[finalCrestType].needed = CURRENCY.CRESTS[finalCrestType].needed + nextLevelCrestCount
+                                        CURRENCY.CRESTS[finalCrestType].needed = CURRENCY.CRESTS[finalCrestType].needed +
+                                        nextLevelCrestCount
                                     end
                                 end
                             end
@@ -402,6 +414,8 @@ local function UpdateAllUpgradeTexts()
                         break
                     end
                 end
+            else
+                text:SetText("")
             end
         else
             text:SetText("")
@@ -413,8 +427,8 @@ local function UpdateAllUpgradeTexts()
     local sortedCrests = {}
     for crestType, data in pairs(CURRENCY.CRESTS) do
         if data and data.needed and data.needed > 0 then
-            sortedCrests[#sortedCrests + 1] = { 
-                crestType = crestType, 
+            sortedCrests[#sortedCrests + 1] = {
+                crestType = crestType,
                 data = {
                     mythicLevel = data.mythicLevel or 0,
                     current = data.current or 0,
@@ -424,18 +438,18 @@ local function UpdateAllUpgradeTexts()
             }
         end
     end
-    
+
     -- Sort with additional safety checks
     table.sort(sortedCrests, function(a, b)
         -- Ensure we have valid data tables
         if not a or not b or not a.data or not b.data then
             return false
         end
-        
+
         -- Get mythic levels with fallback to 0
         local aLevel = tonumber(a.data.mythicLevel) or 0
         local bLevel = tonumber(b.data.mythicLevel) or 0
-        
+
         if aLevel == bLevel then
             -- If mythic levels are equal, sort by crest type
             return tostring(a.crestType) < tostring(b.crestType)
@@ -451,30 +465,30 @@ local function UpdateAllUpgradeTexts()
             --subtract current crests from needed crests and show it as (xx/xx)
             local remaining = data.needed - data.current
             local potentialExtra = data.upgraded * CRESTS_TO_UPGRADE
-            local upgradedText = data.upgraded and data.upgraded > 0 
+            local upgradedText = data.upgraded and data.upgraded > 0
                 and string.format(" [+%d P.Tier]", potentialExtra)
                 or ""
 
             if data.mythicLevel and data.mythicLevel > 0 then
                 local currentRuns = math.max(0, math.ceil(remaining / CRESTS_TO_UPGRADE))
                 local potentialRuns = math.max(0, math.ceil((remaining - potentialExtra) / CRESTS_TO_UPGRADE))
-                
+
                 local runsText
                 if potentialRuns > 0 and potentialRuns < currentRuns then
                     runsText = string.format("M%d+ Runs: [%d]/%d", data.mythicLevel, potentialRuns, currentRuns)
                 else
                     runsText = string.format("M%d+ Runs: %d", data.mythicLevel, currentRuns)
                 end
-                
+
                 totalText = totalText .. string.format("\n%s: %d/%d%s (%s)",
-                    crestType:sub(1,1) .. crestType:sub(2):lower(),
+                    crestType:sub(1, 1) .. crestType:sub(2):lower(),
                     data.current,
                     data.needed,
                     upgradedText,
                     runsText)
             else
                 totalText = totalText .. string.format("\n%s: %d/%d%s",
-                    crestType:sub(1,1) .. crestType:sub(2):lower(),
+                    crestType:sub(1, 1) .. crestType:sub(2):lower(),
                     data.current,
                     data.needed,
                     upgradedText)
@@ -527,10 +541,10 @@ end)
 -- Function to update text position for all slots
 local function UpdateTextPositions(position)
     if not TEXT_POSITIONS[position] then return end
-    
+
     currentTextPos = position
     local posData = TEXT_POSITIONS[position]
-    
+
     for _, text in pairs(upgradeTextPool) do
         if text then
             text:ClearAllPoints()
@@ -552,7 +566,8 @@ SlashCmdList["FULLYUPGRADED"] = function(msg)
             UpdateTextPositions(arg)
             print("|cFFFFFF00FullyUpgraded:|r Text position set to " .. arg)
         else
-            print("|cFFFFFF00FullyUpgraded:|r Valid positions: TR (Top Right), TL (Top Left), BR (Bottom Right), BL (Bottom Left), C (Center)")
+            print(
+            "|cFFFFFF00FullyUpgraded:|r Valid positions: TR (Top Right), TL (Top Left), BR (Bottom Right), BL (Bottom Left), C (Center)")
         end
     else
         print("|cFFFFFF00FullyUpgraded commands:|r")

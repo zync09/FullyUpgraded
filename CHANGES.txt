@@ -1,0 +1,65 @@
+lightweight tag 568e7978f7c8911c7b8fde8fc59f41b6fb24d397 v1.1
+Author:	Zync <zync@zyncinteractive.com.au>
+Date:	Sun Feb 2 23:16:43 2025 +1100
+
+commit 568e7978f7c8911c7b8fde8fc59f41b6fb24d397
+Author: Zync <zync@zyncinteractive.com.au>
+Date:   Sun Feb 2 23:16:43 2025 +1100
+
+    Add text position customization with slash commands
+    
+    - Introduce configurable text position for upgrade texts
+    - Add predefined text position options (TR, TL, BR, BL, C)
+    - Implement /fullyupgraded and /fu slash commands for text positioning
+    - Update version to 1.0.2 in TOC file
+
+commit 50b47a33cd896b2ff88e4394bc4635ab839886d7
+Author: Zync <zync@zyncinteractive.com.au>
+Date:   Sun Feb 2 22:57:24 2025 +1100
+
+    Enhance total crest frame styling and text display
+    
+    - Improve total crest frame visual design with backdrop and transparency
+    - Modify upgrade text to include track initial in display
+    - Adjust font sizes and positioning for better readability
+    - Implement automatic frame resizing on text update
+
+commit 0c895ca7bb567ea45f2dd845b3ced941de40cd72
+Author: Zync <zync@zyncinteractive.com.au>
+Date:   Sun Feb 2 16:45:19 2025 +1100
+
+    Improve crest sorting and data validation in upgrade tracking
+    
+    - Add robust sorting for crest upgrades with fallback checks
+    - Enhance data safety by adding default values and type checks
+    - Refine sorting logic to handle edge cases in crest tracking
+    - Adjust total crest frame positioning for better visual alignment
+
+commit 72a0379f0ffe30eb4fac8c75cc3c5c6ebb6f17dd
+Author: Zync <zync@zyncinteractive.com.au>
+Date:   Sun Feb 2 16:38:51 2025 +1100
+
+    Enhance crest upgrade tracking with multi-tier support
+    
+    - Add support for split upgrade tracks with different crest requirements
+    - Implement crest upgrade calculation for each tier
+    - Improve tooltip and text display for upgraded crests
+    - Add potential tier upgrade information to crest tracking text
+    - Optimize crest upgrade logic for different upgrade paths
+
+commit 9e801ba5d56ddad2466eb01454f33cdd2b21414b
+Author: Zync <zync@zyncinteractive.com.au>
+Date:   Fri Jan 31 11:47:25 2025 +1100
+
+    Update total crest text label for clarity
+
+commit 41d87e1e373973cd4d9063f83205faaedcd59384
+Author: Zync <zync@zyncinteractive.com.au>
+Date:   Fri Jan 31 10:19:00 2025 +1100
+
+    Update TOC for WoW 11.0.0 and add addon icon
+    
+    - Bump interface version to 110007
+    - Increment version to 1.0.1
+    - Add icon texture for addon
+
