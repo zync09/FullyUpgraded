@@ -2,157 +2,16 @@ local addonName, addon = ...
 addon.f = CreateFrame("Frame") -- Main frame
 local f = addon.f
 
-local CRESTS_TO_UPGRADE = 15
-local CRESTS_CONVERSION_UP = 45
-
-local SEASON_ILVL_MIN = 584
-local SEASON_ILVL_MAX = 639
-
-local EQUIPMENT_SLOTS = {
-    "HeadSlot", "NeckSlot", "ShoulderSlot", "BackSlot", "ChestSlot",
-    "WristSlot", "HandsSlot", "WaistSlot", "LegsSlot", "FeetSlot",
-    "Finger0Slot", "Finger1Slot", "Trinket0Slot", "Trinket1Slot",
-    "MainHandSlot", "SecondaryHandSlot"
-}
-
-local CURRENCY = {
-    CRESTS = {
-        WEATHERED = {
-            name = "Weathered Harbinger Crest",
-            current = 0,
-            needed = 0,
-            upgraded = 0,
-            mythicLevel = 0,
-            upgradesTo = "CARVED",
-            currencyID = 2706
-        },
-        CARVED = {
-            name = "Carved Harbinger Crest",
-            current = 0,
-            needed = 0,
-            upgraded = 0,
-            mythicLevel = 2,
-            upgradesTo = "RUNED",
-            currencyID = 2707
-        },
-        RUNED = {
-            name = "Runed Harbinger Crest",
-            current = 0,
-            needed = 0,
-            upgraded = 0,
-            mythicLevel = 4,
-            upgradesTo = "GILDED",
-            currencyID = 2708
-        },
-        GILDED = {
-            name = "Gilded Harbinger Crest",
-            current = 0,
-            needed = 0,
-            upgraded = 0,
-            mythicLevel = 8,
-            upgradesTo = nil,
-            currencyID = 2709
-        }
-    }
-}
-
-local UPGRADE_TRACKS = {
-    EXPLORER = {
-        color = "FFffffff",
-        crest = nil,
-        shortname = "Explorer",
-        finalCrest = nil,
-        upgradeLevels = 8,
-        splitUpgrade = {
-            firstTier = {
-                crest = nil,
-                shortname = "Explorer",
-                levels = 8
-            },
-            secondTier = {
-                crest = nil,
-                shortname = "Explorer",
-                levels = 0
-            }
-        }
-    },
-    VETERAN  = {
-        color = "FF1eff00",
-        crest = "Weathered Harbinger Crest",
-        shortname = "Weathered",
-        finalCrest = "Carved Harbinger Crest",
-        upgradeLevels = 8,
-        splitUpgrade = {
-            firstTier = {
-                crest = "Weathered Harbinger Crest",
-                shortname = "Weathered",
-                levels = 4
-            },
-            secondTier = {
-                crest = "Carved Harbinger Crest",
-                shortname = "Carved",
-                levels = 4
-            }
-        }
-    },
-    CHAMPION = {
-        color = "FF0070dd",
-        crest = "Carved Harbinger Crest",
-        shortname = "Carved",
-        finalCrest = "Runed Harbinger Crest",
-        upgradeLevels = 8,
-        splitUpgrade = {
-            firstTier = {
-                crest = "Carved Harbinger Crest",
-                shortname = "Carved",
-                levels = 4
-            },
-            secondTier = {
-                crest = "Runed Harbinger Crest",
-                shortname = "Runed",
-                levels = 4
-            }
-        }
-    },
-    HERO     = {
-        color = "FFa335ee",
-        crest = "Runed Harbinger Crest",
-        shortname = "Runed",
-        finalCrest = "Gilded Harbinger Crest",
-        upgradeLevels = 6,
-        splitUpgrade = {
-            firstTier = {
-                crest = "Runed Harbinger Crest",
-                shortname = "Runed",
-                levels = 4
-            },
-            secondTier = {
-                crest = "Gilded Harbinger Crest",
-                shortname = "Gilded",
-                levels = 2
-            }
-        }
-    },
-    MYTH     = {
-        color = "FFff8000",
-        crest = "Gilded Harbinger Crest",
-        shortname = "Gilded",
-        finalCrest = "Gilded Harbinger Crest",
-        upgradeLevels = 6,
-        splitUpgrade = {
-            firstTier = {
-                crest = "Gilded Harbinger Crest",
-                shortname = "Gilded",
-                levels = 6
-            },
-            secondTier = {
-                crest = "Gilded Harbinger Crest",
-                shortname = "Gilded",
-                levels = 0
-            }
-        }
-    }
-}
+-- Import constants from addon namespace
+local CRESTS_TO_UPGRADE = addon.CRESTS_TO_UPGRADE
+local CRESTS_CONVERSION_UP = addon.CRESTS_CONVERSION_UP
+local SEASONS = addon.SEASONS
+local EQUIPMENT_SLOTS = addon.EQUIPMENT_SLOTS
+local CREST_REWARDS = addon.CREST_REWARDS
+local CURRENCY = addon.CURRENCY
+local TEXT_POSITIONS = addon.TEXT_POSITIONS
+local CREST_ORDER = addon.CREST_ORDER
+local UPGRADE_TRACKS = addon.UPGRADE_TRACKS
 
 local upgradeTextPool = {}
 local tooltipFrame = CreateFrame("GameTooltip", "GearUpgradeTooltip", UIParent, "GameTooltipTemplate")
@@ -177,14 +36,6 @@ totalCrestText:SetFont(totalCrestText:GetFont(), 12, "OUTLINE")
 totalCrestText:SetJustifyH("RIGHT")
 
 -- Add after other local variables
-local TEXT_POSITIONS = {
-    TR = { point = "TOPRIGHT", x = 6, y = 2 },
-    TL = { point = "TOPLEFT", x = -6, y = 2 },
-    BR = { point = "BOTTOMRIGHT", x = 6, y = -2 },
-    BL = { point = "BOTTOMLEFT", x = -6, y = -2 },
-    C = { point = "CENTER", x = 0, y = 0 },
-}
-
 local currentTextPos = "TR" -- Default position
 
 -- Function to check if character tab is selected
@@ -206,9 +57,6 @@ local function UpdateFrameVisibility()
         totalCrestFrame:Hide()
     end
 end
-
--- Ordered list of crest types from lowest to highest tier
-local CREST_ORDER = { "WEATHERED", "CARVED", "RUNED", "GILDED" }
 
 local function CalculateUpgradedCrests()
     -- Reset upgraded counts
@@ -234,23 +82,14 @@ local function CalculateUpgradedCrests()
     end
 end
 
--- **Fetch Crest Currency Amounts**
+-- Check currency for all crests
 local function CheckCurrencyForAllCrests()
-    -- Reset currency counts
-    for crestType, _ in pairs(CURRENCY.CRESTS) do
-        CURRENCY.CRESTS[crestType].current = 0
-        CURRENCY.CRESTS[crestType].needed = 0
-    end
-
-    local numCurrencies = C_CurrencyInfo.GetCurrencyListSize()
-    for i = 1, numCurrencies do
-        local currencyInfo = C_CurrencyInfo.GetCurrencyListInfo(i)
-        if currencyInfo and not currencyInfo.isHeader and string.find(currencyInfo.name, "Harbinger Crest") then
-            for trackName, track in pairs(UPGRADE_TRACKS) do
-                if track.crest == currencyInfo.name then
-                    local crestType = track.shortname:upper()
-                    CURRENCY.CRESTS[crestType].current = currencyInfo.quantity
-                end
+    for crestType, crestData in pairs(CURRENCY.CRESTS) do
+        if crestData.currencyID then
+            local info = C_CurrencyInfo.GetCurrencyInfo(crestData.currencyID)
+            if info then
+                CURRENCY.CRESTS[crestType].current = info.quantity
+                CURRENCY.CRESTS[crestType].name = info.name
             end
         end
     end
@@ -316,251 +155,155 @@ local function SetUpgradeTooltip(self, track, remaining, current)
     tooltipFrame:Show()
 end
 
+-- Get the current season's item level range
+local function GetCurrentSeasonItemLevelRange()
+    -- For now, we'll use Season 1 as it's the current season
+    -- TODO: Add proper season detection when needed
+    return SEASONS[1].MIN_ILVL, SEASONS[1].MAX_ILVL
+end
 
+-- Remove the old ShowCrestCurrency function and replace with:
 local function ShowCrestCurrency()
-    -- Create currency frame container
-    if not currencyFrame then
-        currencyFrame = CreateFrame("Frame", nil, totalCrestFrame, "BackdropTemplate")
-        currencyFrame:SetPoint("TOPRIGHT", totalCrestFrame, "BOTTOMRIGHT", 0, 0)
-        currencyFrame:SetSize(250, 20)
-        currencyFrame:SetBackdrop({
-            bgFile = "Interface/Buttons/WHITE8x8",
-            edgeFile = "Interface/Buttons/WHITE8x8",
-            tile = true,
-            tileSize = 8,
-            edgeSize = 2,
-        })
-        currencyFrame:SetBackdropColor(0.1, 0.1, 0.1, 0.9)
-        currencyFrame:SetBackdropBorderColor(0, 0, 0, 1)
-    end
+    addon.UpdateCrestCurrency(totalCrestFrame)
+end
 
-    -- Clear any existing currency displays
-    if currencyFrame.displays then
-        for _, display in pairs(currencyFrame.displays) do
-            if display.hoverFrame then
-                display.hoverFrame:Hide()
-            end
-            display.icon:Hide()
-            display.text:Hide()
-            if display.shortname then
-                display.shortname:Hide()
-            end
+-- Process a single upgrade track and update crest requirements
+local function ProcessUpgradeTrack(track, levelsToUpgrade, current)
+    if not track.crest then
+        return CRESTS_TO_UPGRADE * levelsToUpgrade -- Just return the upgrade count for display
+    elseif track.splitUpgrade then
+        local firstTier = track.splitUpgrade.firstTier
+        local secondTier = track.splitUpgrade.secondTier
+        local currentLevel = tonumber(current)
+        local remainingFirstTier = math.min(levelsToUpgrade, math.max(0, firstTier.levels - currentLevel))
+        local remainingSecondTier = math.max(0, levelsToUpgrade - remainingFirstTier)
+
+        if remainingFirstTier > 0 then
+            local crestType = firstTier.shortname:upper()
+            CURRENCY.CRESTS[crestType].needed = CURRENCY.CRESTS[crestType].needed +
+                (remainingFirstTier * CRESTS_TO_UPGRADE)
         end
-    end
 
-    currencyFrame.displays = currencyFrame.displays or {}
-    
-    local xOffset = 5
-    -- Sort crests in reverse order (highest to lowest)
-    local sortedCrests = {}
-    for crestType, crestData in pairs(CURRENCY.CRESTS) do
-        table.insert(sortedCrests, {type = crestType, data = crestData})
-    end
-    table.sort(sortedCrests, function(a, b) return (a.data.mythicLevel or 0) > (b.data.mythicLevel or 0) end)
-
-    for _, crestInfo in ipairs(sortedCrests) do
-        local crestType = crestInfo.type
-        local crestData = crestInfo.data
-        -- Create or get existing display group for this crest
-        if not currencyFrame.displays[crestType] then
-            currencyFrame.displays[crestType] = {
-                hoverFrame = CreateFrame("Frame", nil, currencyFrame),
-                icon = currencyFrame:CreateTexture(nil, "ARTWORK"),
-                text = currencyFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal"),
-                shortname = currencyFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-            }
-            
-            local display = currencyFrame.displays[crestType]
-            
-            -- Set up hover frame for tooltip
-            display.hoverFrame:SetSize(80, 20)
-            
-            -- Set up icon and text (right-aligned)
-            display.icon:SetSize(16, 16)
-            display.text:SetJustifyH("RIGHT")
-            display.shortname:SetJustifyH("RIGHT")
-            
-            -- Color the shortname based on mythic level
-            if crestData.mythicLevel >= 8 then
-                display.shortname:SetTextColor(1, 0.5, 0) -- Orange for M8+
-            elseif crestData.mythicLevel >= 4 then
-                display.shortname:SetTextColor(0.64, 0.21, 0.93) -- Purple for M4+
-            elseif crestData.mythicLevel >= 2 then
-                display.shortname:SetTextColor(0, 0.44, 0.87) -- Blue for M2+
-            else
-                display.shortname:SetTextColor(0.12, 1, 0) -- Green for M0
-            end
+        if remainingSecondTier > 0 then
+            local crestType = secondTier.shortname:upper()
+            CURRENCY.CRESTS[crestType].needed = CURRENCY.CRESTS[crestType].needed +
+                (remainingSecondTier * CRESTS_TO_UPGRADE)
         end
-        
-        local display = currencyFrame.displays[crestType]
-        
-        -- Position elements from right to left
-        local rightEdge = currencyFrame:GetWidth() - xOffset
-        display.text:SetPoint("RIGHT", currencyFrame, "RIGHT", -xOffset, 0)
-        display.icon:SetPoint("RIGHT", display.text, "LEFT", -2, 0)
-        display.shortname:SetPoint("RIGHT", display.icon, "LEFT", -4, 0)
-        
-        -- Position hover frame
-        display.hoverFrame:SetPoint("TOPLEFT", display.shortname, "TOPLEFT", -2, 2)
-        display.hoverFrame:SetPoint("BOTTOMRIGHT", display.text, "BOTTOMRIGHT", 2, -2)
-        
-        -- Update icon and text
-        local info = C_CurrencyInfo.GetCurrencyInfo(crestData.currencyID)
-        if info then
-            display.icon:SetTexture(info.iconFileID)
-            display.text:SetText(crestData.current)
-            display.shortname:SetText(crestData.shortname and crestData.shortname:sub(1,1) or crestType:sub(1,1))
-            
-            -- Set up tooltip scripts
-            display.hoverFrame:SetScript("OnEnter", function(self)
-                GameTooltip:SetOwner(self, "ANCHOR_TOP")
-                GameTooltip:AddLine(crestData.name)
-                if crestData.mythicLevel > 0 then
-                    GameTooltip:AddLine(string.format("Requires Mythic %d+ dungeons", crestData.mythicLevel), 1, 1, 1)
-                end
-                if crestData.upgradesTo then
-                    local upgradesTo = CURRENCY.CRESTS[crestData.upgradesTo]
-                    if upgradesTo then
-                        GameTooltip:AddLine(string.format("Convert %d to %d %s", CRESTS_CONVERSION_UP, CRESTS_TO_UPGRADE, upgradesTo.name), 1, 0.82, 0)
-                    end
-                end
-                GameTooltip:Show()
-            end)
-            display.hoverFrame:SetScript("OnLeave", function()
-                GameTooltip:Hide()
-            end)
-            
-            -- Show elements
-            display.hoverFrame:Show()
-            display.icon:Show()
-            display.text:Show()
-            display.shortname:Show()
-            
-            -- Update offset for next currency
-            xOffset = xOffset + 60
-        end
-    end
-
-    -- Update frame visibility based on character frame
-    if IsCharacterTabSelected() then
-        currencyFrame:Show()
     else
-        currencyFrame:Hide()
+        -- Original logic for other tracks
+        local stdLevelCrestCount = levelsToUpgrade > 2 and
+            (levelsToUpgrade - 2) * CRESTS_TO_UPGRADE or 0
+        local nextLevelCrestCount = levelsToUpgrade > 2 and (2 * CRESTS_TO_UPGRADE) or
+            (levelsToUpgrade * CRESTS_TO_UPGRADE)
+
+        -- Update standard crest counts
+        if stdLevelCrestCount > 0 then
+            local crestType = track.shortname:upper()
+            CURRENCY.CRESTS[crestType].needed = CURRENCY.CRESTS[crestType].needed +
+                stdLevelCrestCount
+        end
+
+        -- Update final crest counts
+        if nextLevelCrestCount > 0 then
+            local finalCrestType = ""
+            for _, upgradeTrack in pairs(UPGRADE_TRACKS) do
+                if upgradeTrack.crest == track.finalCrest then
+                    finalCrestType = upgradeTrack.shortname:upper()
+                    break
+                end
+            end
+            if finalCrestType ~= "" then
+                CURRENCY.CRESTS[finalCrestType].needed = CURRENCY.CRESTS[finalCrestType].needed +
+                    nextLevelCrestCount
+            end
+        end
     end
 end
--- **Update All Equipment Slots & Crest Totals**
-local function UpdateAllUpgradeTexts()
-    CalculateUpgradedCrests()
-    CheckCurrencyForAllCrests()
-    ShowCrestCurrency()
 
-    -- Reset needed counts
-    for crestType, _ in pairs(CURRENCY.CRESTS) do
-        CURRENCY.CRESTS[crestType].needed = 0
-    end
+-- Process a single equipment slot
+local function ProcessEquipmentSlot(slot, text)
+    -- Always hide the text first
+    text:SetText("")
+    text:Hide()
+    text:SetScript("OnEnter", nil)
+    text:SetScript("OnLeave", nil)
 
-    for _, slot in ipairs(EQUIPMENT_SLOTS) do
-        local text = upgradeTextPool[slot]
-        if not text then return end
+    local slotID = GetInventorySlotInfo(slot)
+    local itemLink = GetInventoryItemLink("player", slotID)
 
-        local slotID = GetInventorySlotInfo(slot)
-        local itemLink = GetInventoryItemLink("player", slotID)
+    if not itemLink then return end
 
-        if itemLink then
-            local effectiveILvl = select(4, C_Item.GetItemInfo(itemLink))
-            local tooltipData = C_TooltipInfo.GetInventoryItem("player", slotID)
+    local effectiveILvl = select(4, C_Item.GetItemInfo(itemLink))
+    local tooltipData = C_TooltipInfo.GetInventoryItem("player", slotID)
 
-            -- Only process items within the season's item level range
-            if effectiveILvl and tooltipData and
-                effectiveILvl >= SEASON_ILVL_MIN then
-                for _, line in ipairs(tooltipData.lines) do
-                    local trackName, current, max = line.leftText:match("Upgrade Level: (%w+) (%d+)/(%d+)")
-                    if trackName then
-                        local trackUpper = trackName:upper()
-                        local levelsToUpgrade = tonumber(max) - tonumber(current)
-                        local track = UPGRADE_TRACKS[trackUpper]
+    -- Only process items within the season's item level range
+    if effectiveILvl and tooltipData then
+        local minIlvl, maxIlvl = GetCurrentSeasonItemLevelRange()
+        if effectiveILvl >= minIlvl and effectiveILvl <= maxIlvl then
+            for _, line in ipairs(tooltipData.lines) do
+                local trackName, current, max = line.leftText:match("Upgrade Level: (%w+) (%d+)/(%d+)")
+                if trackName then
+                    local trackUpper = trackName:upper()
+                    local levelsToUpgrade = tonumber(max) - tonumber(current)
+                    local track = UPGRADE_TRACKS[trackUpper]
+
+                    if track and levelsToUpgrade > 0 then
                         --get first letter of track name
-                        local trackName = trackUpper:sub(1, 1)
+                        local trackLetter = trackUpper:sub(1, 1)
+                        text:SetText("|cFFffffff+" .. levelsToUpgrade .. trackLetter .. "|r")
+                        text:Show()
 
-                        -- Update the UI text and tooltip
-                        if track and levelsToUpgrade > 0 then
-                            text:SetText("|cFFffffff+" .. levelsToUpgrade .. trackName .. "|r")
-                            text:Show()
+                        text:SetScript("OnEnter", function(self)
+                            SetUpgradeTooltip(self, track, levelsToUpgrade, tonumber(current))
+                        end)
+                        text:SetScript("OnLeave", function() tooltipFrame:Hide() end)
 
-                            text:SetScript("OnEnter", function(self)
-                                SetUpgradeTooltip(self, track, levelsToUpgrade, tonumber(current))
-                            end)
-                            text:SetScript("OnLeave", function() tooltipFrame:Hide() end)
-
-                            -- Skip crest calculations for Explorer track
-                            if not track.crest then
-                                -- No crest requirements to calculate
-                                text:SetText("|cFFffffff+" .. levelsToUpgrade .. "|r")
-                            elseif track.splitUpgrade then
-                                local firstTier = track.splitUpgrade.firstTier
-                                local secondTier = track.splitUpgrade.secondTier
-                                local currentLevel = tonumber(current)
-                                local remainingFirstTier = math.min(levelsToUpgrade,
-                                    math.max(0, firstTier.levels - currentLevel))
-                                local remainingSecondTier = math.max(0, levelsToUpgrade - remainingFirstTier)
-
-                                if remainingFirstTier > 0 then
-                                    local crestType = firstTier.shortname:upper()
-                                    CURRENCY.CRESTS[crestType].needed = CURRENCY.CRESTS[crestType].needed +
-                                        (remainingFirstTier * CRESTS_TO_UPGRADE)
-                                end
-
-                                if remainingSecondTier > 0 then
-                                    local crestType = secondTier.shortname:upper()
-                                    CURRENCY.CRESTS[crestType].needed = CURRENCY.CRESTS[crestType].needed +
-                                        (remainingSecondTier * CRESTS_TO_UPGRADE)
-                                end
-                            else
-                                -- Original logic for other tracks
-                                -- Calculate crests needed
-                                local stdLevelCrestCount = levelsToUpgrade > 2 and
-                                (levelsToUpgrade - 2) * CRESTS_TO_UPGRADE or 0
-                                local nextLevelCrestCount = levelsToUpgrade > 2 and (2 * CRESTS_TO_UPGRADE) or
-                                (levelsToUpgrade * CRESTS_TO_UPGRADE)
-
-                                -- Update standard crest counts
-                                if stdLevelCrestCount > 0 then
-                                    local crestType = track.shortname:upper()
-                                    CURRENCY.CRESTS[crestType].needed = CURRENCY.CRESTS[crestType].needed +
-                                    stdLevelCrestCount
-                                end
-
-                                -- Update final crest counts
-                                if nextLevelCrestCount > 0 then
-                                    local finalCrestType = ""
-                                    for _, upgradeTrack in pairs(UPGRADE_TRACKS) do
-                                        if upgradeTrack.crest == track.finalCrest then
-                                            finalCrestType = upgradeTrack.shortname:upper()
-                                            break
-                                        end
-                                    end
-                                    if finalCrestType ~= "" then
-                                        CURRENCY.CRESTS[finalCrestType].needed = CURRENCY.CRESTS[finalCrestType].needed +
-                                        nextLevelCrestCount
-                                    end
-                                end
-                            end
-                        else
-                            text:SetText("")
-                        end
-                        break
+                        ProcessUpgradeTrack(track, levelsToUpgrade, current)
                     end
+                    break
                 end
-            else
-                text:SetText("")
             end
-        else
-            text:SetText("")
         end
     end
+end
 
-    -- Display totals with correct M+ levels
-    --sort in order of mythic level from lowest to highest
+-- Format the total text for crests
+local function FormatTotalCrestText(sortedCrests)
+    local totalText = ""
+    for _, crestData in ipairs(sortedCrests) do
+        local crestType = crestData.crestType
+        local data = crestData.data
+        if data.needed > 0 then
+            local remaining = data.needed - data.current
+            local potentialExtra = data.upgraded * CRESTS_TO_UPGRADE
+            local upgradedText = data.upgraded and data.upgraded > 0
+                and string.format(" [+%d]", potentialExtra)
+                or ""
+
+            if data.mythicLevel and data.mythicLevel > 0 then
+                local currentRuns = math.max(0, math.ceil(remaining / CRESTS_TO_UPGRADE))
+                local runsText = string.format("M%d+ Runs: ~%d", data.mythicLevel, currentRuns)
+
+                totalText = totalText .. string.format("\n%s: %d/%d%s (%s)",
+                    crestType:sub(1, 1) .. crestType:sub(2):lower(),
+                    data.current,
+                    data.needed,
+                    upgradedText,
+                    runsText)
+            else
+                totalText = totalText .. string.format("\n%s: %d/%d%s",
+                    crestType:sub(1, 1) .. crestType:sub(2):lower(),
+                    data.current,
+                    data.needed,
+                    upgradedText)
+            end
+        end
+    end
+    return totalText
+end
+
+-- Sort crests by mythic level
+local function GetSortedCrests()
     local sortedCrests = {}
     for crestType, data in pairs(CURRENCY.CRESTS) do
         if data and data.needed and data.needed > 0 then
@@ -578,60 +321,43 @@ local function UpdateAllUpgradeTexts()
 
     -- Sort with additional safety checks
     table.sort(sortedCrests, function(a, b)
-        -- Ensure we have valid data tables
         if not a or not b or not a.data or not b.data then
             return false
         end
 
-        -- Get mythic levels with fallback to 0
         local aLevel = tonumber(a.data.mythicLevel) or 0
         local bLevel = tonumber(b.data.mythicLevel) or 0
 
         if aLevel == bLevel then
-            -- If mythic levels are equal, sort by crest type
             return tostring(a.crestType) < tostring(b.crestType)
         end
         return aLevel < bLevel
     end)
 
-    local totalText = ""
-    for _, crestData in ipairs(sortedCrests) do
-        local crestType = crestData.crestType
-        local data = crestData.data
-        if data.needed > 0 then
-            --subtract current crests from needed crests and show it as (xx/xx)
-            local remaining = data.needed - data.current
-            local potentialExtra = data.upgraded * CRESTS_TO_UPGRADE
-            local upgradedText = data.upgraded and data.upgraded > 0
-                and string.format(" [+%d]", potentialExtra)
-                or ""
+    return sortedCrests
+end
 
-            if data.mythicLevel and data.mythicLevel > 0 then
-                local currentRuns = math.max(0, math.ceil(remaining / CRESTS_TO_UPGRADE))
-                local potentialRuns = math.max(0, math.ceil((remaining - potentialExtra) / CRESTS_TO_UPGRADE))
+-- Main update function
+local function UpdateAllUpgradeTexts()
+    CalculateUpgradedCrests()
+    CheckCurrencyForAllCrests()
+    ShowCrestCurrency()
 
-                local runsText
-                if potentialRuns > 0 and potentialRuns < currentRuns then
-                    runsText = string.format("M%d+ Runs: [%d]/%d", data.mythicLevel, potentialRuns, currentRuns)
-                else
-                    runsText = string.format("M%d+ Runs: %d", data.mythicLevel, currentRuns)
-                end
-
-                totalText = totalText .. string.format("\n%s: %d/%d%s (%s)",
-                    crestType:sub(1, 1) .. crestType:sub(2):lower(),
-                    data.current,
-                    data.needed,
-                    upgradedText,
-                    runsText)
-            else
-                totalText = totalText .. string.format("\n%s: %d/%d%s",
-                    crestType:sub(1, 1) .. crestType:sub(2):lower(),
-                    data.current,
-                    data.needed,
-                    upgradedText)
-            end
-        end
+    -- Reset needed counts
+    for crestType, _ in pairs(CURRENCY.CRESTS) do
+        CURRENCY.CRESTS[crestType].needed = 0
     end
+
+    -- Process each equipment slot
+    for _, slot in ipairs(EQUIPMENT_SLOTS) do
+        local text = upgradeTextPool[slot]
+        if not text then return end
+        ProcessEquipmentSlot(slot, text)
+    end
+
+    -- Update total text display
+    local sortedCrests = GetSortedCrests()
+    local totalText = FormatTotalCrestText(sortedCrests)
 
     if totalText ~= "" then
         totalCrestText:SetText("Fully Upgraded:" .. totalText)
@@ -712,7 +438,7 @@ SlashCmdList["FULLYUPGRADED"] = function(msg)
             print("|cFFFFFF00FullyUpgraded:|r Text position set to " .. arg)
         else
             print(
-            "|cFFFFFF00FullyUpgraded:|r Valid positions: TR (Top Right), TL (Top Left), BR (Bottom Right), BL (Bottom Left), C (Center)")
+                "|cFFFFFF00FullyUpgraded:|r Valid positions: TR (Top Right), TL (Top Left), BR (Bottom Right), BL (Bottom Left), C (Center)")
         end
     else
         print("|cFFFFFF00FullyUpgraded commands:|r")
