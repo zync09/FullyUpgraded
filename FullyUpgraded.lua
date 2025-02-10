@@ -23,7 +23,8 @@ local CURRENCY = {
             needed = 0,
             upgraded = 0,
             mythicLevel = 0,
-            upgradesTo = "CARVED"
+            upgradesTo = "CARVED",
+            currencyID = 2706
         },
         CARVED = {
             name = "Carved Harbinger Crest",
@@ -31,7 +32,8 @@ local CURRENCY = {
             needed = 0,
             upgraded = 0,
             mythicLevel = 2,
-            upgradesTo = "RUNED"
+            upgradesTo = "RUNED",
+            currencyID = 2707
         },
         RUNED = {
             name = "Runed Harbinger Crest",
@@ -39,7 +41,8 @@ local CURRENCY = {
             needed = 0,
             upgraded = 0,
             mythicLevel = 4,
-            upgradesTo = "GILDED"
+            upgradesTo = "GILDED",
+            currencyID = 2708
         },
         GILDED = {
             name = "Gilded Harbinger Crest",
@@ -47,7 +50,8 @@ local CURRENCY = {
             needed = 0,
             upgraded = 0,
             mythicLevel = 8,
-            upgradesTo = nil
+            upgradesTo = nil,
+            currencyID = 2709
         }
     }
 }
@@ -312,10 +316,143 @@ local function SetUpgradeTooltip(self, track, remaining, current)
     tooltipFrame:Show()
 end
 
+
+local function ShowCrestCurrency()
+    -- Create currency frame container
+    if not currencyFrame then
+        currencyFrame = CreateFrame("Frame", nil, totalCrestFrame, "BackdropTemplate")
+        currencyFrame:SetPoint("TOPRIGHT", totalCrestFrame, "BOTTOMRIGHT", 0, 0)
+        currencyFrame:SetSize(250, 20)
+        currencyFrame:SetBackdrop({
+            bgFile = "Interface/Buttons/WHITE8x8",
+            edgeFile = "Interface/Buttons/WHITE8x8",
+            tile = true,
+            tileSize = 8,
+            edgeSize = 2,
+        })
+        currencyFrame:SetBackdropColor(0.1, 0.1, 0.1, 0.9)
+        currencyFrame:SetBackdropBorderColor(0, 0, 0, 1)
+    end
+
+    -- Clear any existing currency displays
+    if currencyFrame.displays then
+        for _, display in pairs(currencyFrame.displays) do
+            if display.hoverFrame then
+                display.hoverFrame:Hide()
+            end
+            display.icon:Hide()
+            display.text:Hide()
+            if display.shortname then
+                display.shortname:Hide()
+            end
+        end
+    end
+
+    currencyFrame.displays = currencyFrame.displays or {}
+    
+    local xOffset = 5
+    -- Sort crests in reverse order (highest to lowest)
+    local sortedCrests = {}
+    for crestType, crestData in pairs(CURRENCY.CRESTS) do
+        table.insert(sortedCrests, {type = crestType, data = crestData})
+    end
+    table.sort(sortedCrests, function(a, b) return (a.data.mythicLevel or 0) > (b.data.mythicLevel or 0) end)
+
+    for _, crestInfo in ipairs(sortedCrests) do
+        local crestType = crestInfo.type
+        local crestData = crestInfo.data
+        -- Create or get existing display group for this crest
+        if not currencyFrame.displays[crestType] then
+            currencyFrame.displays[crestType] = {
+                hoverFrame = CreateFrame("Frame", nil, currencyFrame),
+                icon = currencyFrame:CreateTexture(nil, "ARTWORK"),
+                text = currencyFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal"),
+                shortname = currencyFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+            }
+            
+            local display = currencyFrame.displays[crestType]
+            
+            -- Set up hover frame for tooltip
+            display.hoverFrame:SetSize(80, 20)
+            
+            -- Set up icon and text (right-aligned)
+            display.icon:SetSize(16, 16)
+            display.text:SetJustifyH("RIGHT")
+            display.shortname:SetJustifyH("RIGHT")
+            
+            -- Color the shortname based on mythic level
+            if crestData.mythicLevel >= 8 then
+                display.shortname:SetTextColor(1, 0.5, 0) -- Orange for M8+
+            elseif crestData.mythicLevel >= 4 then
+                display.shortname:SetTextColor(0.64, 0.21, 0.93) -- Purple for M4+
+            elseif crestData.mythicLevel >= 2 then
+                display.shortname:SetTextColor(0, 0.44, 0.87) -- Blue for M2+
+            else
+                display.shortname:SetTextColor(0.12, 1, 0) -- Green for M0
+            end
+        end
+        
+        local display = currencyFrame.displays[crestType]
+        
+        -- Position elements from right to left
+        local rightEdge = currencyFrame:GetWidth() - xOffset
+        display.text:SetPoint("RIGHT", currencyFrame, "RIGHT", -xOffset, 0)
+        display.icon:SetPoint("RIGHT", display.text, "LEFT", -2, 0)
+        display.shortname:SetPoint("RIGHT", display.icon, "LEFT", -4, 0)
+        
+        -- Position hover frame
+        display.hoverFrame:SetPoint("TOPLEFT", display.shortname, "TOPLEFT", -2, 2)
+        display.hoverFrame:SetPoint("BOTTOMRIGHT", display.text, "BOTTOMRIGHT", 2, -2)
+        
+        -- Update icon and text
+        local info = C_CurrencyInfo.GetCurrencyInfo(crestData.currencyID)
+        if info then
+            display.icon:SetTexture(info.iconFileID)
+            display.text:SetText(crestData.current)
+            display.shortname:SetText(crestData.shortname and crestData.shortname:sub(1,1) or crestType:sub(1,1))
+            
+            -- Set up tooltip scripts
+            display.hoverFrame:SetScript("OnEnter", function(self)
+                GameTooltip:SetOwner(self, "ANCHOR_TOP")
+                GameTooltip:AddLine(crestData.name)
+                if crestData.mythicLevel > 0 then
+                    GameTooltip:AddLine(string.format("Requires Mythic %d+ dungeons", crestData.mythicLevel), 1, 1, 1)
+                end
+                if crestData.upgradesTo then
+                    local upgradesTo = CURRENCY.CRESTS[crestData.upgradesTo]
+                    if upgradesTo then
+                        GameTooltip:AddLine(string.format("Convert %d to %d %s", CRESTS_CONVERSION_UP, CRESTS_TO_UPGRADE, upgradesTo.name), 1, 0.82, 0)
+                    end
+                end
+                GameTooltip:Show()
+            end)
+            display.hoverFrame:SetScript("OnLeave", function()
+                GameTooltip:Hide()
+            end)
+            
+            -- Show elements
+            display.hoverFrame:Show()
+            display.icon:Show()
+            display.text:Show()
+            display.shortname:Show()
+            
+            -- Update offset for next currency
+            xOffset = xOffset + 60
+        end
+    end
+
+    -- Update frame visibility based on character frame
+    if IsCharacterTabSelected() then
+        currencyFrame:Show()
+    else
+        currencyFrame:Hide()
+    end
+end
 -- **Update All Equipment Slots & Crest Totals**
 local function UpdateAllUpgradeTexts()
     CalculateUpgradedCrests()
     CheckCurrencyForAllCrests()
+    ShowCrestCurrency()
 
     -- Reset needed counts
     for crestType, _ in pairs(CURRENCY.CRESTS) do
@@ -466,7 +603,7 @@ local function UpdateAllUpgradeTexts()
             local remaining = data.needed - data.current
             local potentialExtra = data.upgraded * CRESTS_TO_UPGRADE
             local upgradedText = data.upgraded and data.upgraded > 0
-                and string.format(" [+%d P.Tier]", potentialExtra)
+                and string.format(" [+%d]", potentialExtra)
                 or ""
 
             if data.mythicLevel and data.mythicLevel > 0 then
@@ -510,11 +647,19 @@ end
 f:RegisterEvent("PLAYER_LOGIN")
 f:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
 f:RegisterEvent("PLAYER_ENTERING_WORLD")
+f:RegisterEvent("CURRENCY_DISPLAY_UPDATE")
+f:RegisterEvent("BAG_UPDATE")
 
 f:SetScript("OnEvent", function(_, event)
     if event == "PLAYER_ENTERING_WORLD" then
         CalculateUpgradedCrests()
         InitializeUpgradeTexts()
+    end
+    if event == "CURRENCY_DISPLAY_UPDATE" or event == "BAG_UPDATE" then
+        if IsCharacterTabSelected() then
+            CalculateUpgradedCrests()
+            UpdateAllUpgradeTexts()
+        end
     end
     if IsCharacterTabSelected() then
         CalculateUpgradedCrests()
