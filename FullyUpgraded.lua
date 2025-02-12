@@ -106,6 +106,27 @@ local function CreateUpgradeText(slot)
     text:SetJustifyH("RIGHT")
     text:SetDrawLayer("OVERLAY", 7)
     text:SetFont(text:GetFont(), 12, "OUTLINE, THICKOUTLINE")
+
+    -- Create fully upgraded icon for this slot
+    local fullyUpgradedIcon = slotFrame:CreateTexture(nil, "OVERLAY", nil, 7)
+    fullyUpgradedIcon:SetSize(16, 16)
+    fullyUpgradedIcon:SetTexture("Interface\\AddOns\\FullyUpgraded\\Media\\fullyup32x32.blp")
+    -- Position the fully upgraded icon using the same positioning data as the text
+    -- posData.point: The anchor point (e.g. "TR", "TL", etc)
+    -- posData.x/y: The x/y offset from the anchor point
+    fullyUpgradedIcon:SetPoint(posData.point, slotFrame, posData.point, 0, 0)
+    fullyUpgradedIcon:Hide()
+
+    -- Create button for tooltip interaction
+    local fullyUpgradedButton = CreateFrame("Button", nil, slotFrame)
+    fullyUpgradedButton:SetSize(16, 16)
+    fullyUpgradedButton:SetPoint(posData.point, slotFrame, posData.point, 0, 0)
+    fullyUpgradedButton:Hide()
+
+    -- Store references to the icon and button
+    text.fullyUpgradedIcon = fullyUpgradedIcon
+    text.fullyUpgradedButton = fullyUpgradedButton
+
     return text
 end
 
@@ -227,6 +248,8 @@ local function ProcessEquipmentSlot(slot, text)
     text:Hide()
     text:SetScript("OnEnter", nil)
     text:SetScript("OnLeave", nil)
+    text.fullyUpgradedIcon:Hide()
+    text.fullyUpgradedButton:Hide()
 
     local slotID = GetInventorySlotInfo(slot)
     local itemLink = GetInventoryItemLink("player", slotID)
@@ -244,21 +267,37 @@ local function ProcessEquipmentSlot(slot, text)
                 local trackName, current, max = line.leftText:match("Upgrade Level: (%w+) (%d+)/(%d+)")
                 if trackName then
                     local trackUpper = trackName:upper()
-                    local levelsToUpgrade = tonumber(max) - tonumber(current)
+                    local currentNum = tonumber(current)
+                    local maxNum = tonumber(max)
+                    local levelsToUpgrade = maxNum - currentNum
                     local track = UPGRADE_TRACKS[trackUpper]
 
-                    if track and levelsToUpgrade > 0 then
-                        --get first letter of track name
-                        local trackLetter = trackUpper:sub(1, 1)
-                        text:SetText("|cFFffffff+" .. levelsToUpgrade .. trackLetter .. "|r")
-                        text:Show()
+                    if track then
+                        if levelsToUpgrade > 0 then
+                            -- Show remaining upgrades
+                            local trackLetter = trackUpper:sub(1, 1)
+                            text:SetText("|cFFffffff+" .. levelsToUpgrade .. trackLetter .. "|r")
+                            text:Show()
 
-                        text:SetScript("OnEnter", function(self)
-                            SetUpgradeTooltip(self, track, levelsToUpgrade, tonumber(current))
-                        end)
-                        text:SetScript("OnLeave", function() tooltipFrame:Hide() end)
+                            text:SetScript("OnEnter", function(self)
+                                SetUpgradeTooltip(self, track, levelsToUpgrade, currentNum)
+                            end)
+                            text:SetScript("OnLeave", function() tooltipFrame:Hide() end)
 
-                        ProcessUpgradeTrack(track, levelsToUpgrade, current)
+                            ProcessUpgradeTrack(track, levelsToUpgrade, current)
+                        elseif currentNum == maxNum then
+                            -- Show fully upgraded icon
+                            text.fullyUpgradedIcon:Show()
+                            text.fullyUpgradedButton:Show()
+                            
+                            text.fullyUpgradedButton:SetScript("OnEnter", function(self)
+                                GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+                                GameTooltip:AddLine("Fully Upgraded")
+                                GameTooltip:AddLine(string.format("%s Track %d/%d", trackName, currentNum, maxNum), 1, 1, 1)
+                                GameTooltip:Show()
+                            end)
+                            text.fullyUpgradedButton:SetScript("OnLeave", function() GameTooltip:Hide() end)
+                        end
                     end
                     break
                 end
@@ -423,6 +462,30 @@ local function UpdateTextPositions(position)
         end
     end
 end
+
+-- Function to set text visibility
+local function SetTextVisibility(show)
+    for slot, text in pairs(upgradeTextPool) do
+        if text then
+            if show then
+                -- Re-process the slot to properly show either upgrade text or fully upgraded icon
+                ProcessEquipmentSlot(slot, text)
+            else
+                text:Hide()
+                text:SetText("")
+                -- Also hide the icon and button
+                if text.fullyUpgradedIcon then
+                    text.fullyUpgradedIcon:Hide()
+                    text.fullyUpgradedButton:Hide()
+                end
+            end
+        end
+    end
+end
+
+-- Export functions to addon namespace
+addon.UpdateTextPositions = UpdateTextPositions
+addon.SetTextVisibility = SetTextVisibility
 
 -- Add slash command handler
 SLASH_FULLYUPGRADED1 = "/fullyupgraded"

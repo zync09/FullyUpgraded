@@ -6,6 +6,8 @@
 ## SavedVariables: FullyUpgradedDB
 ## IconTexture: Interface\AddOns\FullyUpgraded\Media\icon.blp
 
+Media\fullyup32x32.blp
 Constants.lua
 FullyUpgraded.lua
 CrestCurrencyFrame.lua
+OptionsFrame.lua

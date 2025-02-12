@@ -1,10 +1,12 @@
 local addonName, addon = ...
 
 local currencyFrame = nil
+local optionsFrame = nil
 local CURRENCY = addon.CURRENCY -- Reference to main addon's CURRENCY table
 local CREST_ORDER = addon.CREST_ORDER -- Reference to crest order
 local CRESTS_TO_UPGRADE = addon.CRESTS_TO_UPGRADE
 local CRESTS_CONVERSION_UP = addon.CRESTS_CONVERSION_UP
+local TEXT_POSITIONS = addon.TEXT_POSITIONS
 
 -- Import helper functions
 local IsCharacterTabSelected = function()
@@ -155,6 +157,7 @@ end
 local function UpdateCrestCurrency(parent)
     if not currencyFrame then
         currencyFrame = CreateCurrencyFrame(parent)
+        optionsFrame = addon.CreateOptionsFrame(currencyFrame)
     end
 
     -- Clear existing displays
