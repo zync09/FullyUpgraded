@@ -196,9 +196,7 @@ end
 
 -- Get the current season's item level range
 local function GetCurrentSeasonItemLevelRange()
-    -- For now, we'll use Season 1 as it's the current season
-    -- TODO: Add proper season detection when needed
-    return SEASONS[1].MIN_ILVL, SEASONS[1].MAX_ILVL
+    return SEASONS[2].MIN_ILVL, SEASONS[2].MAX_ILVL
 end
 
 -- Remove the old ShowCrestCurrency function and replace with:

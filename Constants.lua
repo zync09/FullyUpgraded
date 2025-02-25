@@ -11,7 +11,7 @@ addon.SEASONS = {
         MAX_ILVL = 639
     },
     [2] = {
-        MIN_ILVL = 623,
+        MIN_ILVL = 619,
         MAX_ILVL = 678
     }
 }
