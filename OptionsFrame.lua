@@ -16,6 +16,7 @@ local function CreateOptionsFrame(parent)
     })
     frame:SetBackdropColor(0.1, 0.1, 0.1, 0.9)
     frame:SetBackdropBorderColor(0, 0, 0, 1)
+    frame:Hide()
 
     -- Create custom checkbox
     local checkbox = CreateFrame("Button", nil, frame, "BackdropTemplate")

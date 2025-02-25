@@ -17,7 +17,7 @@ end
 local function CreateCurrencyFrame(parent)
     local frame = CreateFrame("Frame", nil, parent, "BackdropTemplate")
     frame:SetPoint("TOPRIGHT", parent, "BOTTOMRIGHT", 0, 0)
-    frame:SetSize(250, 20)
+    frame:SetSize(250, 30)
     frame:SetBackdrop({
         bgFile = "Interface/Buttons/WHITE8x8",
         edgeFile = "Interface/Buttons/WHITE8x8",
@@ -66,6 +66,12 @@ local function UpdateCrestTooltip(display, crestData)
     display.hoverFrame:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_TOP")
         GameTooltip:AddLine(crestData.name)
+        
+        -- Show raid source information if available
+        if crestData.source then
+            GameTooltip:AddLine(crestData.source, 1, 0.5, 0) -- Changed to orange (1, 0.5, 0)
+            GameTooltip:AddLine(" ")
+        end
         
         -- Show mythic level requirement
         if crestData.mythicLevel > 0 then

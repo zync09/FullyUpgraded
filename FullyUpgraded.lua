@@ -110,7 +110,7 @@ local function CreateUpgradeText(slot)
     -- Create fully upgraded icon for this slot
     local fullyUpgradedIcon = slotFrame:CreateTexture(nil, "OVERLAY", nil, 7)
     fullyUpgradedIcon:SetSize(16, 16)
-    fullyUpgradedIcon:SetTexture("Interface\\AddOns\\FullyUpgraded\\Media\\fullyup32x32.blp")
+    fullyUpgradedIcon:SetTexture("Interface\\RAIDFRAME\\ReadyCheck-Ready")
     -- Position the fully upgraded icon using the same positioning data as the text
     -- posData.point: The anchor point (e.g. "TR", "TL", etc)
     -- posData.x/y: The x/y offset from the anchor point
@@ -160,16 +160,34 @@ local function SetUpgradeTooltip(self, track, remaining, current)
             local crestType = firstTier.shortname:upper()
             local mythicText = CURRENCY.CRESTS[crestType] and CURRENCY.CRESTS[crestType].mythicLevel > 0 and
                 string.format(" (M%d+)", CURRENCY.CRESTS[crestType].mythicLevel) or ""
-            tooltipFrame:AddLine(string.format("%d x %s%s", remainingFirstTier * CRESTS_TO_UPGRADE, firstTier.crest,
-                mythicText))
+            
+            -- Get currency icon
+            if CURRENCY.CRESTS[crestType] and CURRENCY.CRESTS[crestType].currencyID then
+                local currencyID = CURRENCY.CRESTS[crestType].currencyID
+                -- Get the icon file ID from the currency info
+                local iconFileID = C_CurrencyInfo.GetCurrencyInfo(currencyID).iconFileID
+                local iconText = CreateTextureMarkup(iconFileID, 64, 64, 16, 16, 0, 1, 0, 1)
+                tooltipFrame:AddLine(string.format("%s %d x %s%s", iconText, remainingFirstTier * CRESTS_TO_UPGRADE, firstTier.crest, mythicText))
+            else
+                tooltipFrame:AddLine(string.format("%d x %s%s", remainingFirstTier * CRESTS_TO_UPGRADE, firstTier.crest, mythicText))
+            end
         end
 
         if remainingSecondTier > 0 and secondTier.crest then
             local crestType = secondTier.shortname:upper()
             local mythicText = CURRENCY.CRESTS[crestType] and CURRENCY.CRESTS[crestType].mythicLevel > 0 and
                 string.format(" (M%d+)", CURRENCY.CRESTS[crestType].mythicLevel) or ""
-            tooltipFrame:AddLine(string.format("%d x %s%s", remainingSecondTier * CRESTS_TO_UPGRADE, secondTier.crest,
-                mythicText))
+            
+            -- Get currency icon
+            if CURRENCY.CRESTS[crestType] and CURRENCY.CRESTS[crestType].currencyID then
+                local currencyID = CURRENCY.CRESTS[crestType].currencyID
+                -- Get the icon file ID from the currency info
+                local iconFileID = C_CurrencyInfo.GetCurrencyInfo(currencyID).iconFileID
+                local iconText = CreateTextureMarkup(iconFileID, 64, 64, 16, 16, 0, 1, 0, 1)
+                tooltipFrame:AddLine(string.format("%s %d x %s%s", iconText, remainingSecondTier * CRESTS_TO_UPGRADE, secondTier.crest, mythicText))
+            else
+                tooltipFrame:AddLine(string.format("%d x %s%s", remainingSecondTier * CRESTS_TO_UPGRADE, secondTier.crest, mythicText))
+            end
         end
     end
 
@@ -286,9 +304,12 @@ local function ProcessEquipmentSlot(slot, text)
 
                             ProcessUpgradeTrack(track, levelsToUpgrade, current)
                         elseif currentNum == maxNum then
-                            -- Show fully upgraded icon
+                            -- Show fully upgraded icon with track letter
                             text.fullyUpgradedIcon:Show()
                             text.fullyUpgradedButton:Show()
+                            -- Add track letter text
+                            text:SetText("|cFFffffff" .. '*' .. trackUpper:sub(1,1) .. "|r")
+                            text:Show()
                             
                             text.fullyUpgradedButton:SetScript("OnEnter", function(self)
                                 GameTooltip:SetOwner(self, "ANCHOR_RIGHT")

@@ -90,7 +90,8 @@ addon.CURRENCY = {
             upgraded = 0,
             mythicLevel = 0,
             upgradesTo = "CARVED",
-            currencyID = 2914
+            currencyID = 2914,
+            source = "Dropped by raid bosses on LFR difficulty"
         },
         CARVED = {
             name = "Carved Harbinger Crest",
@@ -102,6 +103,7 @@ addon.CURRENCY = {
             mythicLevel = 2,
             upgradesTo = "RUNED",
             currencyID = 2915,
+            source = "Dropped by raid bosses on Normal difficulty"
         },
         RUNED = {
             name = "Runed Harbinger Crest",
@@ -113,6 +115,7 @@ addon.CURRENCY = {
             mythicLevel = 4,
             upgradesTo = "GILDED",
             currencyID = 2916,
+            source = "Dropped by raid bosses on Heroic difficulty"
         },
         GILDED = {
             name = "Gilded Harbinger Crest",
@@ -123,7 +126,8 @@ addon.CURRENCY = {
             upgraded = 0,
             mythicLevel = 8,
             upgradesTo = nil,
-            currencyID = 2917
+            currencyID = 2917,
+            source = "Dropped by raid bosses on Mythic difficulty"
         }
     }
 }
