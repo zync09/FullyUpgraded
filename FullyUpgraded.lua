@@ -267,6 +267,9 @@ local function ProcessEquipmentSlot(slot, text)
     text.fullyUpgradedIcon:Hide()
     text.fullyUpgradedButton:Hide()
 
+    -- Store the original font and size
+    local fontFile, fontSize, fontFlags = text:GetFont()
+
     local slotID = GetInventorySlotInfo(slot)
     local itemLink = GetInventoryItemLink("player", slotID)
 
@@ -284,12 +287,27 @@ local function ProcessEquipmentSlot(slot, text)
             for _, line in ipairs(tooltipData.lines) do
                 if line.leftText and line.leftText:find("The War Within Season 1") then
                     isSeason1 = true
+                    text:SetFont(fontFile, fontSize, fontFlags)
+                    text:SetText(string.format("|cFF%02x%02x%02xS1|r", 240, 100, 50)) 
+                    text:Show()
+                    
+                    -- Add tooltip for Season 1 items
+                    text:SetScript("OnEnter", function(self)
+                        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+                        GameTooltip:AddLine("Season 1 Item")
+                        GameTooltip:AddLine("This item can no longer be upgraded", 250, 20, 100)
+                        GameTooltip:Show()
+                    end)
+                    text:SetScript("OnLeave", function() GameTooltip:Hide() end)
                     break
                 end
             end
 
-            -- Skip processing if it's a Season 1 item
+            -- Skip further processing if it's a Season 1 item
             if isSeason1 then return end
+
+            -- Reset font size to original for non-Season 1 items
+            text:SetFont(fontFile, fontSize, fontFlags)
 
             for _, line in ipairs(tooltipData.lines) do
                 local trackName, current, max = line.leftText:match("Upgrade Level: (%w+) (%d+)/(%d+)")
