@@ -279,6 +279,18 @@ local function ProcessEquipmentSlot(slot, text)
     if effectiveILvl and tooltipData then
         local minIlvl, maxIlvl = GetCurrentSeasonItemLevelRange()
         if effectiveILvl >= minIlvl and effectiveILvl <= maxIlvl then
+            -- Check if this is a Season 1 item
+            local isSeason1 = false
+            for _, line in ipairs(tooltipData.lines) do
+                if line.leftText and line.leftText:find("The War Within Season 1") then
+                    isSeason1 = true
+                    break
+                end
+            end
+
+            -- Skip processing if it's a Season 1 item
+            if isSeason1 then return end
+
             for _, line in ipairs(tooltipData.lines) do
                 local trackName, current, max = line.leftText:match("Upgrade Level: (%w+) (%d+)/(%d+)")
                 if trackName then
