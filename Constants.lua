@@ -18,9 +18,9 @@ addon.SEASONS = {
 
 -- Equipment slots organized by category
 local SLOT_CATEGORIES = {
-    armor = {"Head", "Shoulder", "Chest", "Wrist", "Hands", "Waist", "Legs", "Feet"},
-    accessories = {"Neck", "Back", "Finger0", "Finger1", "Trinket0", "Trinket1"},
-    weapons = {"MainHand", "SecondaryHand"}
+    armor = { "Head", "Shoulder", "Chest", "Wrist", "Hands", "Waist", "Legs", "Feet" },
+    accessories = { "Neck", "Back", "Finger0", "Finger1", "Trinket0", "Trinket1" },
+    weapons = { "MainHand", "SecondaryHand" }
 }
 
 -- Generate equipment slots array
@@ -38,40 +38,40 @@ end)()
 addon.CREST_BASE = {
     WEATHERED = {
         baseName = "Weathered",
-        suffix = "Harbinger Crest",
+        suffix = "Undermine Crest",
         shortCode = "W",
         color = "FF1eff00",
-        currencyID = 2914,
+        currencyID = 3107,
         mythicLevel = 0,
         source = "Dropped by raid bosses on LFR difficulty",
         upgradesTo = "CARVED"
     },
     CARVED = {
         baseName = "Carved",
-        suffix = "Harbinger Crest",
+        suffix = "Undermine Crest",
         shortCode = "C",
         color = "FF0070dd",
-        currencyID = 2915,
+        currencyID = 3112,
         mythicLevel = 2,
         source = "Dropped by raid bosses on Normal difficulty",
         upgradesTo = "RUNED"
     },
     RUNED = {
         baseName = "Runed",
-        suffix = "Harbinger Crest",
+        suffix = "Undermine Crest",
         shortCode = "R",
         color = "FFa335ee",
-        currencyID = 2916,
+        currencyID = 3113,
         mythicLevel = 4,
         source = "Dropped by raid bosses on Heroic difficulty",
         upgradesTo = "GILDED"
     },
     GILDED = {
         baseName = "Gilded",
-        suffix = "Harbinger Crest",
+        suffix = "Undermine Crest",
         shortCode = "G",
         color = "FFff8000",
-        currencyID = 2917,
+        currencyID = 3114,
         mythicLevel = 8,
         source = "Dropped by raid bosses on Mythic difficulty",
         upgradesTo = nil
@@ -131,19 +131,19 @@ addon.CREST_REWARDS = (function()
         for i = 0, count - 1 do
             local level = startLevel + i
             tier[level] = {
-                timed = CREST_REWARD_BASE.base.timed + 
+                timed = CREST_REWARD_BASE.base.timed +
                     (i * CREST_REWARD_BASE.increment.timed),
-                untimed = CREST_REWARD_BASE.base.untimed + 
+                untimed = CREST_REWARD_BASE.base.untimed +
                     (i * CREST_REWARD_BASE.increment.untimed)
             }
         end
         return tier
     end
-    
-    rewards.CARVED = generateTierRewards(2, 2)   -- Levels 2-3
-    rewards.RUNED = generateTierRewards(4, 4)    -- Levels 4-7
-    rewards.GILDED = generateTierRewards(8, 5)   -- Levels 8-12
-    
+
+    rewards.CARVED = generateTierRewards(2, 2) -- Levels 2-3
+    rewards.RUNED = generateTierRewards(4, 4)  -- Levels 4-7
+    rewards.GILDED = generateTierRewards(8, 5) -- Levels 8-12
+
     return rewards
 end)()
 
@@ -179,7 +179,7 @@ addon.UPGRADE_TRACKS = (function()
             }
         }
     }
-    
+
     -- Define track configurations
     local trackConfigs = {
         VETERAN = {
@@ -203,18 +203,19 @@ addon.UPGRADE_TRACKS = (function()
             splitAt = 6
         }
     }
-    
+
     -- Generate tracks from configurations
     for trackName, config in pairs(trackConfigs) do
         local startCrestData = addon.CREST_BASE[config.startCrest]
         local nextCrestType = startCrestData.upgradesTo
         local nextCrestData = nextCrestType and addon.CREST_BASE[nextCrestType]
-        
+
         tracks[trackName] = {
             color = startCrestData.color,
             crest = startCrestData.baseName .. " " .. startCrestData.suffix,
             shortname = startCrestData.baseName,
-            finalCrest = nextCrestData and (nextCrestData.baseName .. " " .. nextCrestData.suffix) or startCrestData.baseName .. " " .. startCrestData.suffix,
+            finalCrest = nextCrestData and (nextCrestData.baseName .. " " .. nextCrestData.suffix) or
+            startCrestData.baseName .. " " .. startCrestData.suffix,
             upgradeLevels = config.levels,
             splitUpgrade = {
                 firstTier = {
@@ -230,6 +231,6 @@ addon.UPGRADE_TRACKS = (function()
             }
         }
     end
-    
+
     return tracks
-end)() 
+end)()
