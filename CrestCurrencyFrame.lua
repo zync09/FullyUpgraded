@@ -2,7 +2,7 @@ local addonName, addon = ...
 
 local currencyFrame = nil
 local optionsFrame = nil
-local CURRENCY = addon.CURRENCY -- Reference to main addon's CURRENCY table
+local CURRENCY = addon.CURRENCY       -- Reference to main addon's CURRENCY table
 local CREST_ORDER = addon.CREST_ORDER -- Reference to crest order
 local CRESTS_TO_UPGRADE = addon.CRESTS_TO_UPGRADE
 local CRESTS_CONVERSION_UP = addon.CRESTS_CONVERSION_UP
@@ -15,18 +15,9 @@ end
 
 -- Create the base frame for currency display
 local function CreateCurrencyFrame(parent)
-    local frame = CreateFrame("Frame", nil, parent, "BackdropTemplate")
-    frame:SetPoint("TOPRIGHT", parent, "BOTTOMRIGHT", 0, 0)
-    frame:SetSize(250, 30)
-    frame:SetBackdrop({
-        bgFile = "Interface/Buttons/WHITE8x8",
-        edgeFile = "Interface/Buttons/WHITE8x8",
-        tile = true,
-        tileSize = 8,
-        edgeSize = 2,
-    })
-    frame:SetBackdropColor(0.1, 0.1, 0.1, 0.9)
-    frame:SetBackdropBorderColor(0, 0, 0, 1)
+    -- The parent frame is now just a container, no need for backdrop
+    local frame = CreateFrame("Frame", nil, parent)
+    frame:SetAllPoints(parent) -- Fill the parent frame
     return frame
 end
 
@@ -38,26 +29,25 @@ local function CreateCrestDisplay(parent, crestType, crestData)
         text = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal"),
         shortname = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     }
-    
+
     -- Set up hover frame for tooltip
     display.hoverFrame:SetSize(80, 20)
-    
+
     -- Set up icon and text
     display.icon:SetSize(20, 20)
     display.text:SetJustifyH("RIGHT")
     display.shortname:SetJustifyH("RIGHT")
-    
-    -- Color the shortname based on mythic level
-    if crestData.mythicLevel >= 8 then
-        display.shortname:SetTextColor(1, 0.5, 0) -- Orange for M8+
-    elseif crestData.mythicLevel >= 4 then
-        display.shortname:SetTextColor(0.64, 0.21, 0.93) -- Purple for M4+
-    elseif crestData.mythicLevel >= 2 then
-        display.shortname:SetTextColor(0, 0.44, 0.87) -- Blue for M2+
-    else
-        display.shortname:SetTextColor(0.12, 1, 0) -- Green for M0
+
+    -- Color the shortname based on the crest's color from CREST_BASE
+    local baseData = addon.CREST_BASE[crestType]
+    if baseData and baseData.color then
+        -- Convert hex color to RGB values
+        local r = tonumber(baseData.color:sub(1,2), 16) / 255
+        local g = tonumber(baseData.color:sub(3,4), 16) / 255
+        local b = tonumber(baseData.color:sub(5,6), 16) / 255
+        display.shortname:SetTextColor(r, g, b)
     end
-    
+
     return display
 end
 
@@ -65,51 +55,62 @@ end
 local function UpdateCrestTooltip(display, crestData)
     display.hoverFrame:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_TOP")
-        GameTooltip:AddLine(crestData.name)
         
+        -- Get the crest type and base data
+        local crestType = crestData.shortname:upper()
+        local baseData = addon.CREST_BASE[crestType]
+        
+        -- Add name with color from CREST_BASE
+        GameTooltip:AddLine(string.format("|cFF%s%s|r", baseData.color, baseData.baseName .. " Undermine Crest"))
+
         -- Show raid source information if available
-        if crestData.source then
-            GameTooltip:AddLine(crestData.source, 1, 0.5, 0) -- Changed to orange (1, 0.5, 0)
-            GameTooltip:AddLine(" ")
+        if baseData.source then
+            GameTooltip:AddLine(baseData.source, 1, 0.5, 0) -- Orange color
         end
-        
-        -- Show mythic level requirement
-        if crestData.mythicLevel > 0 then
-            GameTooltip:AddLine(string.format("Requires Mythic %d+ dungeons", crestData.mythicLevel), 1, 1, 1)
+
+        -- Show mythic level requirement if applicable
+        if baseData.mythicLevel > 0 then
             GameTooltip:AddLine(" ")
-            
-            -- Get the crest type from the name
-            local crestType = crestData.shortname:upper()
-            
-            -- Show rewards for each mythic level for this crest type
-            if addon.CREST_REWARDS[crestType] then
-                GameTooltip:AddLine("Dungeon Rewards:", 1, 0.82, 0)
-                
-                -- Get all levels and sort them
-                local levels = {}
-                for level, _ in pairs(addon.CREST_REWARDS[crestType]) do
-                    table.insert(levels, level)
-                end
-                table.sort(levels)
-                
-                -- Display rewards in sorted order
-                for _, level in ipairs(levels) do
-                    local rewards = addon.CREST_REWARDS[crestType][level]
-                    GameTooltip:AddLine(string.format("M%d:  |cFF00FF00%d|r (Timed)  |cFFFFFF00%d|r (Untimed)", 
-                        level, rewards.timed, rewards.untimed))
-                end
+            GameTooltip:AddLine(string.format("Requires Mythic %d+ dungeons", baseData.mythicLevel), 1, 1, 1)
+        end
+
+        -- Show rewards for each mythic level for this crest type
+        if addon.CREST_REWARDS[crestType] then
+            GameTooltip:AddLine(" ")
+            GameTooltip:AddLine("Dungeon Rewards:", 1, 1, 0)
+
+            -- Get all levels and sort them
+            local levels = {}
+            for level, _ in pairs(addon.CREST_REWARDS[crestType]) do
+                table.insert(levels, level)
+            end
+            table.sort(levels)
+
+            -- Display rewards in sorted order
+            for _, level in ipairs(levels) do
+                local rewards = addon.CREST_REWARDS[crestType][level]
+                local baseReward = rewards.timed
+                local expiredReward = math.max(0, baseReward - addon.EXPIRED_KEYSTONE_DEDUCTION)
+                GameTooltip:AddLine(string.format("|cFF%sM%d:|r |cFF00FF00%d|r |cFFFFFFFF(Expired:|r |cFFFF0000%d|r|cFFFFFFFF)|r", 
+                    baseData.color, level, baseReward, expiredReward), 1, 1, 1, true)
             end
         end
-        
+
         -- Show upgrade conversion if available
-        if crestData.upgradesTo then
-            local upgradesTo = CURRENCY.CRESTS[crestData.upgradesTo]
+        if baseData.upgradesTo then
+            local upgradesTo = addon.CREST_BASE[baseData.upgradesTo]
             if upgradesTo then
                 GameTooltip:AddLine(" ")
-                GameTooltip:AddLine(string.format("Convert %d to %d %s", CRESTS_CONVERSION_UP, CRESTS_TO_UPGRADE, upgradesTo.name), 1, 0.82, 0)
+                GameTooltip:AddLine(
+                    string.format("Convert %d to %d |cFF%s%s|r", 
+                        CRESTS_CONVERSION_UP, 
+                        CRESTS_TO_UPGRADE, 
+                        upgradesTo.color,
+                        upgradesTo.baseName .. " Undermine Crest"
+                    ), 1, 1, 0)
             end
         end
-        
+
         GameTooltip:Show()
     end)
     display.hoverFrame:SetScript("OnLeave", function()
@@ -133,7 +134,7 @@ local function UpdateCrestDisplay(display, crestData)
         display.icon:SetTexture(info.iconFileID)
         display.text:SetText(info.quantity)
         display.shortname:SetText(crestData.reallyshortname)
-        
+
         -- Show all elements
         display.hoverFrame:Show()
         display.icon:Show()
@@ -149,7 +150,7 @@ local function GetSortedCrests()
     for _, crestType in ipairs(CREST_ORDER) do
         local crestData = CURRENCY.CRESTS[crestType]
         if crestData then
-            table.insert(sortedCrests, {type = crestType, data = crestData})
+            table.insert(sortedCrests, { type = crestType, data = crestData })
         end
     end
     -- Reverse the order since we want highest to lowest
@@ -185,27 +186,27 @@ local function UpdateCrestCurrency(parent)
     end
 
     currencyFrame.displays = currencyFrame.displays or {}
-    
+
     local xOffset = 5
     local sortedCrests = GetSortedCrests()
 
     for _, crestInfo in ipairs(sortedCrests) do
         local crestType = crestInfo.type
         local crestData = crestInfo.data
-        
+
         if crestData.currencyID then -- Only create display if we have a valid currencyID
             -- Create or get existing display
             if not currencyFrame.displays[crestType] then
                 currencyFrame.displays[crestType] = CreateCrestDisplay(currencyFrame, crestType, crestData)
             end
-            
+
             local display = currencyFrame.displays[crestType]
-            
+
             -- Position and update the display
             PositionCrestDisplay(display, currencyFrame, xOffset)
             UpdateCrestDisplay(display, crestData)
             UpdateCrestTooltip(display, crestData)
-            
+
             xOffset = xOffset + 60
         end
     end
@@ -219,4 +220,4 @@ local function UpdateCrestCurrency(parent)
 end
 
 -- Export functions to addon namespace
-addon.UpdateCrestCurrency = UpdateCrestCurrency 
+addon.UpdateCrestCurrency = UpdateCrestCurrency

@@ -11,7 +11,7 @@ addon.SEASONS = {
         MAX_ILVL = 639
     },
     [2] = {
-        MIN_ILVL = 619,
+        MIN_ILVL = 597,
         MAX_ILVL = 678
     }
 }
@@ -34,46 +34,66 @@ addon.EQUIPMENT_SLOTS = (function()
     return slots
 end)()
 
+-- Common crest values
+local CREST_COMMON = {
+    SUFFIX = "Undermine Crest",
+    DIFFICULTIES = {
+        LFR = "LFR difficulty",
+        NORMAL = "Normal difficulty",
+        HEROIC = "Heroic difficulty",
+        MYTHIC = "Mythic difficulty"
+    }
+}
+
 -- Base crest definitions
 addon.CREST_BASE = {
     WEATHERED = {
         baseName = "Weathered",
-        suffix = "Undermine Crest",
         shortCode = "W",
-        color = "FF1eff00",
+        color = "ffffff",
         currencyID = 3107,
         mythicLevel = 0,
-        source = "Dropped by raid bosses on LFR difficulty",
+        sources = {
+            "Raid: " .. CREST_COMMON.DIFFICULTIES.LFR,
+            "Bountiful Delves: Tier 4-5"
+        },
         upgradesTo = "CARVED"
     },
     CARVED = {
         baseName = "Carved",
-        suffix = "Undermine Crest",
         shortCode = "C",
-        color = "FF0070dd",
+        color = "1eff00",
         currencyID = 3112,
-        mythicLevel = 2,
-        source = "Dropped by raid bosses on Normal difficulty",
+        mythicLevel = 0,
+        sources = {
+            "Raid: " .. CREST_COMMON.DIFFICULTIES.NORMAL,
+            "Mythic 0 dungeons",
+            "Bountiful Delves: Tier 5-7"
+        },
         upgradesTo = "RUNED"
     },
     RUNED = {
         baseName = "Runed",
-        suffix = "Undermine Crest",
         shortCode = "R",
-        color = "FFa335ee",
+        color = "0070dd",
         currencyID = 3113,
-        mythicLevel = 4,
-        source = "Dropped by raid bosses on Heroic difficulty",
+        mythicLevel = 2,
+        sources = {
+            "Raid: " .. CREST_COMMON.DIFFICULTIES.HEROIC,
+            "Bountiful Delves: Tier 6-11"
+        },
         upgradesTo = "GILDED"
     },
     GILDED = {
         baseName = "Gilded",
-        suffix = "Undermine Crest",
         shortCode = "G",
-        color = "FFff8000",
+        color = "a335ee",
         currencyID = 3114,
-        mythicLevel = 8,
-        source = "Dropped by raid bosses on Mythic difficulty",
+        mythicLevel = 7,
+        sources = {
+            "Raid: " .. CREST_COMMON.DIFFICULTIES.MYTHIC,
+            "Bountiful Delves: Tier 8-11"
+        },
         upgradesTo = nil
     }
 }
@@ -94,8 +114,9 @@ addon.CURRENCY = {
     CRESTS = (function()
         local crests = {}
         for crestType, data in pairs(addon.CREST_BASE) do
+            local fullName = data.baseName .. " " .. CREST_COMMON.SUFFIX
             crests[crestType] = {
-                name = data.baseName .. " " .. data.suffix,
+                name = fullName,
                 shortname = data.baseName,
                 reallyshortname = data.shortCode,
                 current = 0,
@@ -113,36 +134,53 @@ addon.CURRENCY = {
 
 -- Crest rewards with base values and increments
 local CREST_REWARD_BASE = {
-    base = {
-        timed = 12,
-        untimed = 8
+    RUNED = {
+        base = 10,
+        increment = 2
     },
-    increment = {
-        timed = 2,
-        untimed = 2
+    GILDED = {
+        base = 10,
+        increment = 2
     }
 }
+
+-- Expired keystone deduction
+addon.EXPIRED_KEYSTONE_DEDUCTION = 4
 
 -- Generate CREST_REWARDS programmatically
 addon.CREST_REWARDS = (function()
     local rewards = {}
-    local function generateTierRewards(startLevel, count)
+
+    -- Helper function to generate rewards for a specific crest type
+    local function generateRewards(crestType, startLevel, endLevel, baseRewards)
         local tier = {}
-        for i = 0, count - 1 do
-            local level = startLevel + i
+        for level = startLevel, endLevel do
             tier[level] = {
-                timed = CREST_REWARD_BASE.base.timed +
-                    (i * CREST_REWARD_BASE.increment.timed),
-                untimed = CREST_REWARD_BASE.base.untimed +
-                    (i * CREST_REWARD_BASE.increment.untimed)
+                timed = baseRewards[level],
+                untimed = baseRewards[level] -- In Season 2, timed and untimed rewards are the same
             }
         end
         return tier
     end
 
-    rewards.CARVED = generateTierRewards(2, 2) -- Levels 2-3
-    rewards.RUNED = generateTierRewards(4, 4)  -- Levels 4-7
-    rewards.GILDED = generateTierRewards(8, 5) -- Levels 8-12
+    -- Generate Runed crest rewards (levels 2-6)
+    rewards.RUNED = generateRewards("RUNED", 2, 6, {
+        [2] = 10,
+        [3] = 12,
+        [4] = 14,
+        [5] = 16,
+        [6] = 18
+    })
+
+    -- Generate Gilded crest rewards (levels 7-12)
+    rewards.GILDED = generateRewards("GILDED", 7, 12, {
+        [7] = 10,
+        [8] = 12,
+        [9] = 14,
+        [10] = 16,
+        [11] = 18,
+        [12] = 20
+    })
 
     return rewards
 end)()
@@ -160,7 +198,7 @@ addon.TEXT_POSITIONS = {
 addon.UPGRADE_TRACKS = (function()
     local tracks = {
         EXPLORER = {
-            color = "FFffffff",
+            color = "|cFFffffff",
             crest = nil,
             shortname = "Explorer",
             finalCrest = nil,
@@ -212,19 +250,19 @@ addon.UPGRADE_TRACKS = (function()
 
         tracks[trackName] = {
             color = startCrestData.color,
-            crest = startCrestData.baseName .. " " .. startCrestData.suffix,
+            crest = startCrestData.baseName .. " " .. startCrestData.shortCode,
             shortname = startCrestData.baseName,
-            finalCrest = nextCrestData and (nextCrestData.baseName .. " " .. nextCrestData.suffix) or
-            startCrestData.baseName .. " " .. startCrestData.suffix,
+            finalCrest = nextCrestData and (nextCrestData.baseName .. " " .. nextCrestData.shortCode) or
+                startCrestData.baseName .. " " .. startCrestData.shortCode,
             upgradeLevels = config.levels,
             splitUpgrade = {
                 firstTier = {
-                    crest = startCrestData.baseName .. " " .. startCrestData.suffix,
+                    crest = startCrestData.baseName .. " " .. startCrestData.shortCode,
                     shortname = startCrestData.baseName,
                     levels = config.splitAt
                 },
                 secondTier = {
-                    crest = nextCrestData and (nextCrestData.baseName .. " " .. nextCrestData.suffix) or nil,
+                    crest = nextCrestData and (nextCrestData.baseName .. " " .. nextCrestData.shortCode) or nil,
                     shortname = nextCrestData and nextCrestData.baseName or startCrestData.baseName,
                     levels = config.levels - config.splitAt
                 }
