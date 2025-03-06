@@ -63,7 +63,7 @@ addon.CREST_BASE = {
         baseName = "Carved",
         shortCode = "C",
         color = "1eff00",
-        currencyID = 3112,
+        currencyID = 3108,
         mythicLevel = 0,
         sources = {
             "Raid: " .. CREST_COMMON.DIFFICULTIES.NORMAL,
@@ -76,11 +76,12 @@ addon.CREST_BASE = {
         baseName = "Runed",
         shortCode = "R",
         color = "0070dd",
-        currencyID = 3113,
+        currencyID = 3109,
         mythicLevel = 2,
         sources = {
             "Raid: " .. CREST_COMMON.DIFFICULTIES.HEROIC,
-            "Bountiful Delves: Tier 6-11"
+            "Bountiful Delves: Tier 8-11",
+            "Delvers Bounty: Tier 6-7"
         },
         upgradesTo = "GILDED"
     },
@@ -88,7 +89,7 @@ addon.CREST_BASE = {
         baseName = "Gilded",
         shortCode = "G",
         color = "a335ee",
-        currencyID = 3114,
+        currencyID = 3110,
         mythicLevel = 7,
         sources = {
             "Raid: " .. CREST_COMMON.DIFFICULTIES.MYTHIC,
