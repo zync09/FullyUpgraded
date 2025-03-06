@@ -53,47 +53,58 @@ addon.CREST_BASE = {
         color = "ffffff",
         currencyID = 3107,
         mythicLevel = 0,
+        usage = "Used to upgrade Adventurer and Veteran gear in War Within Season 2 up to item level 623-632",
         sources = {
-            "Raid: " .. CREST_COMMON.DIFFICULTIES.LFR,
-            "Bountiful Delves: Tier 4-5"
+            "Repeatable Outdoor Events",
+            "Raid Finder Liberation of Undermine",
+            "Heroic Season Dungeons",
+            "Delves (Tiers 1 to 5)"
         },
         upgradesTo = "CARVED"
     },
     CARVED = {
         baseName = "Carved",
         shortCode = "C",
-        color = "1eff00",
+        color = "006bee",
         currencyID = 3108,
         mythicLevel = 0,
+        usage = "Used to upgrade Veteran and Champion gear in War Within Season 2 up to item level 636-645",
         sources = {
-            "Raid: " .. CREST_COMMON.DIFFICULTIES.NORMAL,
+            "Weekly Random Events",
+            "Normal Liberation of Undermine",
             "Mythic 0 dungeons",
-            "Bountiful Delves: Tier 5-7"
+            "Delves (Tiers 6 and 7)",
+            "Delver's Bounty (Tiers 4 and 5)"
         },
         upgradesTo = "RUNED"
     },
     RUNED = {
         baseName = "Runed",
         shortCode = "R",
-        color = "0070dd",
+        color = "a729ff",
         currencyID = 3109,
         mythicLevel = 2,
+        usage = "Used to upgrade Champion and Hero gear in War Within Season 2 up to item level 649-658",
         sources = {
-            "Raid: " .. CREST_COMMON.DIFFICULTIES.HEROIC,
-            "Bountiful Delves: Tier 8-11",
-            "Delvers Bounty: Tier 6-7"
+            "Heroic Liberation of Undermine",
+            "Mythic Keystone Dungeons from +2 to +6",
+            "Delves (Tiers 8 to 11)",
+            "Delver's Bounty (Tiers 6 and 7)"
         },
         upgradesTo = "GILDED"
     },
     GILDED = {
         baseName = "Gilded",
         shortCode = "G",
-        color = "a335ee",
+        color = "ff8000",
         currencyID = 3110,
         mythicLevel = 7,
+        usage = "Used to upgrade Hero and Myth gear in War Within Season 2 up to item levels 662 and above",
         sources = {
-            "Raid: " .. CREST_COMMON.DIFFICULTIES.MYTHIC,
-            "Bountiful Delves: Tier 8-11"
+            "Mythic Liberation of Undermine",
+            "Mythic Keystone Dungeons from +7 and up",
+            "Delve's Gilded Stash (Tier 11)",
+            "Delver's Bounty (Tier 8 and up)"
         },
         upgradesTo = nil
     }

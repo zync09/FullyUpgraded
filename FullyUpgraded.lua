@@ -73,13 +73,6 @@ totalCrestText:SetJustifyH("RIGHT")
 -- Add after other local variables
 local debugMode = false -- Set to true to enable debug messages
 
--- Debug function
-local function Debug(...)
-    if debugMode then
-        print("|cFF00FF00FullyUpgraded Debug:|r", ...)
-    end
-end
-
 -- Function to check if character tab is selected
 local function IsCharacterTabSelected()
     return PaperDollFrame:IsVisible()
@@ -109,7 +102,6 @@ local function UpdateFrameVisibility()
 end
 
 local function CalculateUpgradedCrests()
-    Debug("Starting CalculateUpgradedCrests")
     -- Reset upgraded counts
     for _, crestType in ipairs(CREST_ORDER) do
         if CURRENCY.CRESTS[crestType] then
@@ -129,24 +121,15 @@ local function CalculateUpgradedCrests()
             -- Calculate how many crests can be upgraded from the previous tier
             local upgradedCount = math.floor(previousCrest.current / CRESTS_CONVERSION_UP)
             currentCrest.upgraded = upgradedCount
-            
-            Debug(string.format("Calculated upgrades: %s -> %s: %d/%d = %d upgraded", 
-                previousType, currentType, previousCrest.current, CRESTS_CONVERSION_UP, upgradedCount))
+
         end
     end
     
-    -- Log the final upgraded values for all crests
-    for _, crestType in ipairs(CREST_ORDER) do
-        if CURRENCY.CRESTS[crestType] then
-            Debug(string.format("Final upgraded value for %s: %d", 
-                crestType, CURRENCY.CRESTS[crestType].upgraded or 0))
-        end
-    end
+
 end
 
 -- Check currency for all crests
 local function CheckCurrencyForAllCrests()
-    Debug("Starting CheckCurrencyForAllCrests")
     for crestType, crestData in pairs(CURRENCY.CRESTS) do
         if crestData.currencyID then
             local info = C_CurrencyInfo.GetCurrencyInfo(crestData.currencyID)
@@ -154,11 +137,6 @@ local function CheckCurrencyForAllCrests()
                 local oldValue = CURRENCY.CRESTS[crestType].current
                 CURRENCY.CRESTS[crestType].current = info.quantity
                 CURRENCY.CRESTS[crestType].name = info.name
-                Debug(string.format("Updated currency for %s: %d -> %d", 
-                    crestType, oldValue, info.quantity))
-            else
-                Debug(string.format("Failed to get currency info for %s (ID: %d)", 
-                    crestType, crestData.currencyID))
             end
         end
     end
@@ -189,21 +167,12 @@ end
 -- Simplified update function
 local function UpdateDisplay()
     if IsCharacterTabSelected() then
-        Debug("Running update")
         -- Force a complete refresh of all slots
         addon.InitializeUpgradeTexts() -- Make sure all text elements exist
         
         -- Explicitly recalculate and update currency information
         CheckCurrencyForAllCrests()
         CalculateUpgradedCrests()
-        
-        -- Update the currency display
-        if addon.ShowCrestCurrency then
-            Debug("Updating crest currency display")
-            addon.ShowCrestCurrency()
-        else
-            Debug("WARNING: ShowCrestCurrency function not found")
-        end
         
         -- Update the display
         addon.UpdateAllUpgradeTexts()
@@ -368,7 +337,6 @@ end
 
 -- Format the total text for crests
 local function FormatTotalCrestText(sortedCrests)
-    Debug("Starting FormatTotalCrestText")
     local totalText = ""
     for _, crestData in ipairs(sortedCrests) do
         local crestType = crestData.crestType
@@ -376,9 +344,7 @@ local function FormatTotalCrestText(sortedCrests)
         if data.needed > 0 then
             local remaining = math.max(0, data.needed - data.current)
             local potentialExtra = data.upgraded * CRESTS_TO_UPGRADE
-            
-            Debug(string.format("%s: needed=%d, current=%d, remaining=%d, upgraded=%d, potentialExtra=%d", 
-                crestType, data.needed, data.current, remaining, data.upgraded, potentialExtra))
+
             
             local upgradedText = data.upgraded and data.upgraded > 0
                 and string.format(" [+%d]", potentialExtra)
@@ -423,8 +389,7 @@ local function FormatTotalCrestText(sortedCrests)
                     minRuns = math.ceil(adjustedRemaining / highestReward)
                 end
                 
-                Debug(string.format("%s: adjustedRemaining=%d, maxRuns=%d, minRuns=%d", 
-                    crestType, adjustedRemaining, maxRuns, minRuns))
+
                 
                 local runsText = ""
                 
@@ -458,7 +423,6 @@ end
 
 -- Sort crests by the predefined order in CREST_ORDER (Weathered to Gilded)
 local function GetSortedCrests()
-    Debug("Starting GetSortedCrests")
     local sortedCrests = {}
     for crestType, data in pairs(CURRENCY.CRESTS) do
         -- Include all crests, not just those with needed > 0
@@ -471,8 +435,7 @@ local function GetSortedCrests()
                 upgraded = data.upgraded or 0
             }
         }
-        Debug(string.format("Added crest to sorted list: %s (current=%d, needed=%d, upgraded=%d)", 
-            crestType, data.current or 0, data.needed or 0, data.upgraded or 0))
+
     end
     
     -- Sort by the order defined in CREST_ORDER
@@ -501,45 +464,30 @@ f:RegisterEvent("BAG_UPDATE")
 -- Modified event handler with better initialization
 f:SetScript("OnEvent", function(_, event)
     if event == "PLAYER_ENTERING_WORLD" then
-        Debug("Handling PLAYER_ENTERING_WORLD")
         -- Initialize immediately
         addon.InitializeUpgradeTexts()
         -- Then run update
         UpdateDisplay()
         -- Schedule another update slightly later to catch any late-loading data
         C_Timer.After(1, function()
-            Debug("Running second update after PLAYER_ENTERING_WORLD")
             UpdateDisplay()
         end)
     elseif event == "PLAYER_LOGIN" then
-        Debug("Handling PLAYER_LOGIN")
         addon.InitializeUpgradeTexts()
         UpdateDisplay()
     elseif event == "CURRENCY_DISPLAY_UPDATE" or 
            event == "BAG_UPDATE" or 
            event == "PLAYER_EQUIPMENT_CHANGED" then
-        Debug("Handling event:", event)
         UpdateDisplay()
     end
 end)
 
 -- Function to force a currency update
 local function ForceCurrencyUpdate()
-    Debug("Forcing currency update")
     CheckCurrencyForAllCrests()
     CalculateUpgradedCrests()
     if addon.ShowCrestCurrency then
-        Debug("Updating crest currency display")
         addon.ShowCrestCurrency()
-    else
-        Debug("WARNING: ShowCrestCurrency function not found")
-    end
-    
-    -- Log the current currency values
-    Debug("Current currency values:")
-    for crestType, data in pairs(CURRENCY.CRESTS) do
-        Debug(string.format("  %s: current=%d, needed=%d, upgraded=%d", 
-            crestType, data.current or 0, data.needed or 0, data.upgraded or 0))
     end
     
     UpdateFrameSizeToText()
@@ -658,8 +606,6 @@ addon.ForceCurrencyUpdate = ForceCurrencyUpdate
 local function ShowCrestCurrency()
     if addon.UpdateCrestCurrency then
         addon.UpdateCrestCurrency(currencyFrame)
-    else
-        Debug("WARNING: UpdateCrestCurrency not found in addon namespace")
     end
 end
 

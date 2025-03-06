@@ -8,12 +8,7 @@ local CRESTS_TO_UPGRADE = addon.CRESTS_TO_UPGRADE
 local CRESTS_CONVERSION_UP = addon.CRESTS_CONVERSION_UP
 local TEXT_POSITIONS = addon.TEXT_POSITIONS
 
--- Import Debug function from main addon
-local Debug = function(...)
-    if addon.Debug then
-        addon.Debug(...)
-    end
-end
+
 
 -- Import helper functions
 local IsCharacterTabSelected = function()
@@ -30,7 +25,6 @@ end
 
 -- Create display elements for a single crest type
 local function CreateCrestDisplay(parent, crestType, crestData)
-    Debug(string.format("Creating display elements for %s", crestType))
     
     local display = {
         hoverFrame = CreateFrame("Frame", nil, parent),
@@ -60,7 +54,6 @@ local function CreateCrestDisplay(parent, crestType, crestData)
         local g = tonumber(baseData.color:sub(3,4), 16) / 255
         local b = tonumber(baseData.color:sub(5,6), 16) / 255
         display.shortname:SetTextColor(r, g, b)
-        Debug(string.format("Set color for %s: %f, %f, %f", crestType, r, g, b))
     end
 
     -- Set initial text
@@ -80,11 +73,6 @@ local function CreateCrestDisplay(parent, crestType, crestData)
     display.text:Show()
     display.shortname:Show()
 
-    Debug(string.format("Created display for %s: shortname=%s, text=%s, visible=%s", 
-        crestType, 
-        display.shortname:GetText() or "nil",
-        display.text:GetText() or "nil",
-        display.text:IsVisible() and "true" or "false"))
 
     return display
 end
@@ -189,28 +177,13 @@ local function GetSortedCrests()
         local crestData = CURRENCY.CRESTS[crestType]
         if crestData then
             table.insert(sortedCrests, { type = crestType, data = crestData })
-            Debug(string.format("GetSortedCrests: Added %s to sorted list (current=%d, needed=%d, upgraded=%d)", 
-                crestType, 
-                crestData.current or 0,
-                crestData.needed or 0,
-                crestData.upgraded or 0))
         end
     end
     
-    Debug(string.format("GetSortedCrests: Total crests in sorted list: %d", #sortedCrests))
     
     -- Reverse the order since we want highest to lowest
     for i = 1, math.floor(#sortedCrests / 2) do
         sortedCrests[i], sortedCrests[#sortedCrests - i + 1] = sortedCrests[#sortedCrests - i + 1], sortedCrests[i]
-    end
-    
-    -- Log the final order
-    Debug("GetSortedCrests: Final order:")
-    for i, crestInfo in ipairs(sortedCrests) do
-        Debug(string.format("  %d. %s (current=%d)", 
-            i, 
-            crestInfo.type,
-            crestInfo.data.current or 0))
     end
     
     return sortedCrests
@@ -218,23 +191,6 @@ end
 
 -- Main update function for the currency frame
 local function UpdateCrestCurrency(parent)
-    Debug("Starting UpdateCrestCurrency with parent frame:", parent:GetName() or "unnamed")
-    
-    -- Debug all currencies first
-    Debug("Checking all currencies in game:")
-    for i = 1, 4000 do  -- Check a reasonable range of currency IDs
-        local info = C_CurrencyInfo.GetCurrencyInfo(i)
-        if info and info.name and info.name:find("Undermine Crest") then
-            Debug(string.format("Found currency: ID=%d, name=%s, quantity=%d", 
-                i, info.name, info.quantity))
-        end
-    end
-    
-    -- Make sure we have the latest currency data
-    Debug("Current CREST_BASE configuration:")
-    for crestType, baseData in pairs(addon.CREST_BASE) do
-        Debug(string.format("%s: currencyID=%d", crestType, baseData.currencyID))
-    end
     
     for crestType, crestData in pairs(CURRENCY.CRESTS) do
         if crestData.currencyID then
@@ -243,20 +199,13 @@ local function UpdateCrestCurrency(parent)
                 local oldValue = CURRENCY.CRESTS[crestType].current
                 CURRENCY.CRESTS[crestType].current = info.quantity
                 CURRENCY.CRESTS[crestType].name = info.name
-                Debug(string.format("UpdateCrestCurrency: %s updated from %d to %d (ID: %d, name: %s)", 
-                    crestType, oldValue or 0, info.quantity, crestData.currencyID, info.name))
-            else
-                Debug(string.format("UpdateCrestCurrency: Failed to get currency info for %s (ID: %d)", 
-                    crestType, crestData.currencyID))
             end
         end
     end
 
     if not currencyFrame then
-        Debug("Creating new currency frame")
         currencyFrame = CreateFrame("Frame", "FullyUpgradedCurrencyFrame", parent, "BackdropTemplate")
         if currencyFrame then
-            Debug("Successfully created currency frame")
             currencyFrame:SetSize(250, 30)
             currencyFrame:SetPoint("TOPRIGHT", parent, "TOPRIGHT", 0, 0)
             currencyFrame:Show()
@@ -272,7 +221,6 @@ local function UpdateCrestCurrency(parent)
             currencyFrame:SetBackdropColor(0, 0, 0, 0.5)
             currencyFrame:SetBackdropBorderColor(1, 1, 1, 0.5)
         else
-            Debug("ERROR: Failed to create currency frame")
             return
         end
     end
@@ -280,7 +228,6 @@ local function UpdateCrestCurrency(parent)
     -- Clear existing displays
     if currencyFrame.displays then
         for crestType, display in pairs(currencyFrame.displays) do
-            Debug(string.format("Clearing display for %s", crestType))
             if display.hoverFrame then display.hoverFrame:Hide() end
             if display.icon then display.icon:Hide() end
             if display.text then display.text:Hide() end
@@ -292,56 +239,34 @@ local function UpdateCrestCurrency(parent)
 
     local xOffset = 5
     local sortedCrests = GetSortedCrests()
-    Debug(string.format("Processing %d crests for display", #sortedCrests))
 
     for _, crestInfo in ipairs(sortedCrests) do
         local crestType = crestInfo.type
         local crestData = crestInfo.data
 
-        Debug(string.format("Processing crest %s: currencyID=%s", 
-            crestType, tostring(crestData.currencyID)))
-
         if crestData.currencyID then
-            -- Create or get existing display
+            -- Create the display if it doesn't exist
             if not currencyFrame.displays[crestType] then
-                Debug(string.format("Creating new display for %s", crestType))
                 currencyFrame.displays[crestType] = CreateCrestDisplay(currencyFrame, crestType, crestData)
             end
 
             local display = currencyFrame.displays[crestType]
-            
-            -- Position and update the display
-            PositionCrestDisplay(display, currencyFrame, xOffset)
-            UpdateCrestDisplay(display, crestData)
-            UpdateCrestTooltip(display, crestData)
+            if display then  -- Add safety check
+                -- Position and update the display
+                PositionCrestDisplay(display, currencyFrame, xOffset)
+                UpdateCrestDisplay(display, crestData)
+                UpdateCrestTooltip(display, crestData)
 
-            Debug(string.format("Updated display for %s: position=%d, current=%d, visible=%s", 
-                crestType, xOffset, crestData.current or 0,
-                display.text:IsVisible() and "true" or "false"))
-
-            xOffset = xOffset + 60
+                xOffset = xOffset + 60
+            end
         end
     end
 
     -- Update frame visibility
     if IsCharacterTabSelected() then
         currencyFrame:Show()
-        Debug(string.format("Currency frame shown: visible=%s, parent visible=%s", 
-            currencyFrame:IsVisible() and "true" or "false",
-            parent:IsVisible() and "true" or "false"))
-        
-        -- Verify displays are visible
-        for crestType, display in pairs(currencyFrame.displays) do
-            if display.text:IsShown() then
-                Debug(string.format("%s display is visible with text: %s", 
-                    crestType, display.text:GetText() or "nil"))
-            else
-                Debug(string.format("WARNING: %s display is not visible", crestType))
-            end
-        end
     else
         currencyFrame:Hide()
-        Debug("Currency frame hidden")
     end
 end
 
@@ -363,3 +288,59 @@ currencyEventFrame:SetScript("OnEvent", function(self, event)
         UpdateCrestCurrency(currencyFrame:GetParent())
     end
 end)
+
+-- Update the position of a single currency display
+local function UpdateDisplayPosition(display, parent, xOffset)
+    if not display then return xOffset end  -- Guard against nil display
+    
+    display:ClearAllPoints()
+    display:SetPoint("LEFT", parent, "LEFT", xOffset, 0)
+    
+    -- Update xOffset for next display
+    return xOffset + display:GetWidth() + 5  -- 5 pixel spacing between displays
+end
+
+-- Update all currency display positions
+local function UpdateCurrencyPositions(parent)
+    if not parent or not parent.displays then return end  -- Guard against nil parent
+    
+    local xOffset = 5  -- Initial offset from left edge
+    
+    -- Update position for each display
+    for _, display in pairs(parent.displays) do
+        if display and display:IsShown() then
+            xOffset = UpdateDisplayPosition(display, parent, xOffset)
+        end
+    end
+    
+    -- Update frame width to fit all displays
+    if parent:GetWidth() ~= xOffset then
+        parent:SetWidth(math.max(xOffset, 50))  -- Minimum width of 50
+    end
+end
+
+-- Create or update a currency display
+local function UpdateCrestDisplay(crestType, count, parent)
+    if not parent or not parent.displays then 
+        parent.displays = {}  -- Initialize displays table if it doesn't exist
+    end
+    
+    -- Get or create display
+    local display = parent.displays[crestType]
+    if not display then
+        display = CreateFrame("Frame", nil, parent)
+        parent.displays[crestType] = display
+        -- Initialize display frame here
+        display:SetSize(32, 32)
+        -- Add other necessary initialization
+    end
+    
+    -- Update display
+    if display then
+        -- Update count and visibility
+        display:Show()
+        -- Update other display properties
+    end
+    
+    return display
+end

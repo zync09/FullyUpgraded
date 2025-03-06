@@ -21,12 +21,6 @@ local CreateUpgradeText
 local InitializeUpgradeTexts
 local UpdateAllUpgradeTexts
 
--- Debug function (reference to the main addon's debug function)
-local Debug = function(...) 
-    if addon.Debug then
-        addon.Debug(...)
-    end
-end
 
 -- Function to check if character tab is selected
 local function IsCharacterTabSelected()
@@ -35,12 +29,8 @@ end
 
 -- **Creates Upgrade Text for a Slot**
 local function CreateUpgradeText(slot)
-    Debug("Creating upgrade text for slot:", slot)
     local slotFrame = _G["Character" .. slot]
-    if not slotFrame then 
-        Debug("ERROR: Slot frame not found for:", slot)
-        return 
-    end
+
 
     -- Create the text element with proper settings
     local text = slotFrame:CreateFontString(nil, "OVERLAY")
@@ -76,18 +66,14 @@ local function CreateUpgradeText(slot)
     text.slot = slot -- Store the slot reference
     text.slotFrame = slotFrame -- Store the slot frame reference
     
-    Debug("Text position:", posData.point, posData.x, posData.y)
-    
     return text
 end
 
 -- **Initialize All Equipment Slot Overlays**
 local function InitializeUpgradeTexts()
-    Debug("Initializing upgrade texts for all slots")
     -- Clear existing text pool
     for slot, text in pairs(upgradeTextPool) do
         if text then
-            Debug("Clearing existing text for slot:", slot)
             text:Hide()
             if text.fullyUpgradedIcon then text.fullyUpgradedIcon:Hide() end
             if text.fullyUpgradedButton then text.fullyUpgradedButton:Hide() end
@@ -98,15 +84,12 @@ local function InitializeUpgradeTexts()
     -- Create new text elements
     local failedSlots = {}
     for _, slot in ipairs(EQUIPMENT_SLOTS) do
-        Debug("Creating text for slot:", slot)
         local text = CreateUpgradeText(slot)
         
         if text then
             upgradeTextPool[slot] = text
-            Debug("Successfully created upgrade text for slot:", slot)
             -- Verify text creation
             if not text:GetFont() then
-                Debug("WARNING: Font not set for slot:", slot)
                 text:SetFont(fontFile, fontSize, fontFlags)
             end
             -- Force initial position
@@ -115,15 +98,10 @@ local function InitializeUpgradeTexts()
             text:SetPoint(posData.point, text.slotFrame, posData.point, posData.x, posData.y)
         else
             table.insert(failedSlots, slot)
-            Debug("Failed to create upgrade text for slot:", slot)
         end
     end
+
     
-    if #failedSlots > 0 then
-        Debug("Failed to initialize texts for the following slots:", table.concat(failedSlots, ", "))
-    end
-    
-    Debug("Finished initializing all upgrade texts. Total texts created:", #EQUIPMENT_SLOTS - #failedSlots)
 end
 
 -- Process a Season 1 item
@@ -180,11 +158,7 @@ end
 
 -- Modified ProcessEquipmentSlot function with additional debugging
 local function ProcessEquipmentSlot(slot, text)
-    if not text then
-        Debug("ERROR: No text element provided for slot:", slot)
-        return
-    end
-    Debug("Processing slot:", slot)
+
     
     -- Always reset the text first
     text:ClearAllPoints()
@@ -212,32 +186,21 @@ local function ProcessEquipmentSlot(slot, text)
     end
 
     local slotID = GetInventorySlotInfo(slot)
-    if not slotID then
-        Debug("ERROR: Invalid slot ID for slot:", slot)
-        return
-    end
+
     
     local itemLink = GetInventoryItemLink("player", slotID)
-    if not itemLink then 
-        Debug("No item in slot:", slot)
-        return 
-    end
+
 
     -- Get cached item info
     local _, _, _, effectiveILvl = addon.GetCachedItemInfo(itemLink)
-    Debug("Item level for slot", slot .. ":", effectiveILvl)
     
     -- Get cached tooltip data
     local tooltipData = addon.GetCachedTooltipData(slotID, itemLink)
-    if not tooltipData then
-        Debug("ERROR: No tooltip data for slot:", slot)
-        return
-    end
+
 
     -- Only process items within the season's item level range
     if effectiveILvl and tooltipData then
         local minIlvl, maxIlvl = addon.GetCurrentSeasonItemLevelRange()
-        Debug("Season item level range for slot", slot .. ":", minIlvl, "-", maxIlvl)
         
         if effectiveILvl >= minIlvl and effectiveILvl <= maxIlvl then
             -- Check if this is a Season 1 item
@@ -245,9 +208,7 @@ local function ProcessEquipmentSlot(slot, text)
             for _, line in ipairs(tooltipData.lines) do
                 if line.leftText and line.leftText:find("The War Within Season 1") then
                     isSeason1 = true
-                    Debug("Season 1 item found in slot:", slot)
                     ProcessSeason1Item(text, fontFile, fontSize, fontFlags)
-                    Debug("Text visibility after ProcessSeason1Item:", text:IsShown())
                     return
                 end
             end
@@ -257,7 +218,6 @@ local function ProcessEquipmentSlot(slot, text)
                 for _, line in ipairs(tooltipData.lines) do
                     local trackName, current, max = line.leftText:match("Upgrade Level: (%w+) (%d+)/(%d+)")
                     if trackName then
-                        Debug("Found upgrade track:", trackName, current, "/", max)
                         local trackUpper = trackName:upper()
                         local currentNum = tonumber(current)
                         local maxNum = tonumber(max)
@@ -265,20 +225,15 @@ local function ProcessEquipmentSlot(slot, text)
                         local track = UPGRADE_TRACKS[trackUpper]
 
                         if track then
-                            Debug("Track found:", trackUpper, "Levels to upgrade:", levelsToUpgrade)
                             if levelsToUpgrade > 0 then
-                                Debug("Processing upgradeable item")
                                 ProcessUpgradeableItem(text, track, trackName, currentNum, maxNum, levelsToUpgrade)
-                                Debug("Text visibility after ProcessUpgradeableItem:", text:IsShown())
                             elseif currentNum == maxNum then
-                                Debug("Processing fully upgraded item")
                                 -- Show fully upgraded icon with track letter
                                 local trackLetter = trackUpper:sub(1, 1)
                                 text.fullyUpgradedIcon:Show()
                                 text.fullyUpgradedButton:Show()
                                 text:SetText("|cFFffffff" .. '*' .. trackLetter .. "|r")
                                 text:Show()
-                                Debug("Text visibility after fully upgraded:", text:IsShown())
                                 
                                 -- Set up tooltip for both the button and text
                                 local function setupFullyUpgradedTooltip(self)
@@ -294,27 +249,21 @@ local function ProcessEquipmentSlot(slot, text)
                                 text:SetScript("OnLeave", function() GameTooltip:Hide() end)
                             end
                         else
-                            Debug("Track not found in UPGRADE_TRACKS:", trackUpper)
                         end
                         break
                     end
                 end
             end
         else
-            Debug("Item level outside of season range for slot", slot .. ":", effectiveILvl)
         end
     else
-        Debug("Missing item level or tooltip data for slot:", slot)
     end
 end
 
 -- Main update function
 local function UpdateAllUpgradeTexts()
-    Debug("Starting UpdateAllUpgradeTexts")
-    Debug("Current equipment slots:", table.concat(EQUIPMENT_SLOTS, ", "))
     
     -- Make sure currency is up to date before processing equipment slots
-    Debug("Updating currency information")
     addon.CalculateUpgradedCrests()
     addon.CheckCurrencyForAllCrests()
     addon.ShowCrestCurrency()
@@ -325,23 +274,19 @@ local function UpdateAllUpgradeTexts()
     end
 
     -- Process each equipment slot
-    Debug("Processing equipment slots")
     local processedCount = 0
     local skippedCount = 0
     
     for _, slot in ipairs(EQUIPMENT_SLOTS) do
         local text = upgradeTextPool[slot]
         if text then 
-            Debug("Found text element for slot:", slot)
             processedCount = processedCount + 1
             ProcessEquipmentSlot(slot, text)
         else
-            Debug("ERROR: No text element found for slot:", slot)
             skippedCount = skippedCount + 1
             -- Try to reinitialize the missing text element
             local newText = CreateUpgradeText(slot)
             if newText then
-                Debug("Successfully created missing text element for slot:", slot)
                 upgradeTextPool[slot] = newText
                 ProcessEquipmentSlot(slot, newText)
                 processedCount = processedCount + 1
@@ -350,10 +295,8 @@ local function UpdateAllUpgradeTexts()
         end
     end
 
-    Debug("Slots processed:", processedCount, "Slots skipped:", skippedCount)
 
     -- Update total text display
-    Debug("Updating total text display")
     local sortedCrests = addon.GetSortedCrests()
     local totalText = addon.FormatTotalCrestText(sortedCrests)
 
@@ -366,7 +309,6 @@ local function UpdateAllUpgradeTexts()
     end
 
     addon.UpdateFrameSizeToText()
-    Debug("Finished UpdateAllUpgradeTexts")
 end
 
 -- Function to update text position for all slots
@@ -435,27 +377,17 @@ end
 local function SetupCharacterFrameHooks()
     -- Modified hook functions with immediate initialization
     PaperDollFrame:HookScript("OnShow", function()
-        Debug("PaperDollFrame shown")
-        if not next(upgradeTextPool) then
-            Debug("Reinitializing texts due to empty pool")
-            InitializeUpgradeTexts()
-        end
+
         -- Force a currency update when the character frame is shown
-        Debug("Forcing currency update from PaperDollFrame OnShow")
         addon.CheckCurrencyForAllCrests()
         addon.CalculateUpgradedCrests()
         addon.UpdateDisplay()
     end)
 
     CharacterFrame:HookScript("OnShow", function()
-        Debug("CharacterFrame shown")
         if IsCharacterTabSelected() then
-            if not next(upgradeTextPool) then
-                Debug("Reinitializing texts due to empty pool")
-                InitializeUpgradeTexts()
-            end
+
             -- Force a currency update when the character frame is shown
-            Debug("Forcing currency update from CharacterFrame OnShow")
             addon.CheckCurrencyForAllCrests()
             addon.CalculateUpgradedCrests()
             addon.UpdateDisplay()
@@ -465,8 +397,6 @@ local function SetupCharacterFrameHooks()
     -- Modified equipment update hook
     hooksecurefunc("PaperDollItemSlotButton_Update", function(button)
         if IsCharacterTabSelected() and upgradeTextPool[button:GetName():gsub("Character", "")] then
-            -- Force a currency update when equipment changes
-            Debug("Forcing currency update from PaperDollItemSlotButton_Update")
             addon.CheckCurrencyForAllCrests()
             addon.CalculateUpgradedCrests()
             addon.UpdateDisplay()
