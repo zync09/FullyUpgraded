@@ -51,7 +51,7 @@ masterFrame:SetBackdrop({
     tileSize = 8,
     edgeSize = 2,
 })
-masterFrame:SetBackdropColor(0.1, 0.1, 0.1, 0.9)
+masterFrame:SetBackdropColor(0.1, 0.1, 0.1, 0.95)
 masterFrame:SetBackdropBorderColor(0, 0, 0, 1)
 
 -- Create currency frame as a child of master frame (no backdrop needed)

@@ -218,8 +218,8 @@ local function UpdateCrestCurrency(parent)
                 tileSize = 8,
                 edgeSize = 1,
             })
-            currencyFrame:SetBackdropColor(0, 0, 0, 0.5)
-            currencyFrame:SetBackdropBorderColor(1, 1, 1, 0.5)
+            currencyFrame:SetBackdropColor(0, 0, 0, 0)
+            currencyFrame:SetBackdropBorderColor(1, 1, 1, 0)
         else
             return
         end
