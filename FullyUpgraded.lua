@@ -43,7 +43,7 @@ local fontStringPool = CreateFontStringPool()
 -- Create master frame that will contain both displays
 local masterFrame = CreateFrame("Frame", "GearUpgradeMasterFrame", CharacterFrame, "BackdropTemplate")
 masterFrame:SetPoint("TOPRIGHT", CharacterFrame, "BOTTOMRIGHT", 0, 0)
-masterFrame:SetSize(250, 30) -- Initial size for just currency frame
+masterFrame:SetSize(280, 30) -- Initial size for just currency frame
 masterFrame:SetBackdrop({
     bgFile = "Interface/Buttons/WHITE8x8",
     edgeFile = "Interface/Buttons/WHITE8x8",
@@ -58,6 +58,7 @@ masterFrame:SetBackdropBorderColor(0, 0, 0, 1)
 local currencyFrame = CreateFrame("Frame", "GearUpgradeCurrencyFrame", masterFrame)
 currencyFrame:SetPoint("TOPRIGHT", masterFrame, "TOPRIGHT", 0, 0)
 currencyFrame:SetSize(250, 30)
+currencyFrame:Show()
 
 -- Create total crest frame as a child of master frame (no backdrop needed)
 local totalCrestFrame = CreateFrame("Frame", "GearUpgradeTotalFrame", masterFrame)
@@ -81,12 +82,12 @@ end
 local function UpdateFrameSizeToText()
     local currencyHeight = 30 -- Fixed height for currency frame
     local textHeight = 0
-    
+
     if totalCrestText:IsShown() and totalCrestText:GetText() and totalCrestText:GetText() ~= "" then
         textHeight = totalCrestText:GetStringHeight() + 10 -- Add padding
     end
-    
-    totalCrestFrame:SetHeight(textHeight) -- Only update height, keep width
+
+    totalCrestFrame:SetHeight(textHeight)              -- Only update height, keep width
     masterFrame:SetHeight(currencyHeight + textHeight) -- Update master frame height
 end
 
@@ -121,11 +122,8 @@ local function CalculateUpgradedCrests()
             -- Calculate how many crests can be upgraded from the previous tier
             local upgradedCount = math.floor(previousCrest.current / CRESTS_CONVERSION_UP)
             currentCrest.upgraded = upgradedCount
-
         end
     end
-    
-
 end
 
 -- Check currency for all crests
@@ -150,14 +148,14 @@ end
 -- Optimization: Clear caches periodically
 local function ClearCaches()
     local currentTime = GetTime()
-    
+
     -- Clear old tooltip cache entries
     for key, data in pairs(tooltipCache) do
         if (currentTime - data.time) > 5 then
             tooltipCache[key] = nil
         end
     end
-    
+
     -- Clear item cache if it gets too large
     if next(itemCache) and #itemCache > 100 then
         wipe(itemCache)
@@ -167,16 +165,20 @@ end
 -- Simplified update function
 local function UpdateDisplay()
     if IsCharacterTabSelected() then
-        -- Force a complete refresh of all slots
-        addon.InitializeUpgradeTexts() -- Make sure all text elements exist
-        
+        -- Only initialize texts if they don't exist
+        if not next(addon.upgradeTextPool) then
+            addon.InitializeUpgradeTexts()
+        end
+
         -- Explicitly recalculate and update currency information
         CheckCurrencyForAllCrests()
         CalculateUpgradedCrests()
-        
+
         -- Update the display
-        addon.UpdateAllUpgradeTexts()
-        
+        if addon.UpdateAllUpgradeTexts then
+            addon.UpdateAllUpgradeTexts()
+        end
+
         -- Make sure the currency frame is visible
         if masterFrame then
             masterFrame:Show()
@@ -186,66 +188,83 @@ local function UpdateDisplay()
 end
 
 -- **Tooltip Setup for Crest Costs**
-local function SetUpgradeTooltip(self, track, remaining, current)
-    tooltipFrame:SetOwner(self, "ANCHOR_RIGHT")
-    tooltipFrame:AddLine("Upgrade Requirements:")
+local function SetUpgradeTooltip(self, tooltipInfo)
+    if not tooltipInfo then return end
 
-    -- Skip crest requirements for Explorer track
-    if not track.crest then
-        tooltipFrame:AddLine("No crests required")
-        tooltipFrame:Show()
+    if tooltipInfo.type == "season1" then
+        GameTooltip:AddLine("Season 1 Item")
+        GameTooltip:AddLine("This item can no longer be upgraded", 1, 0.2, 0.2)
         return
     end
 
-    -- Special handling for tracks with split requirements
-    if track.splitUpgrade then
-        local firstTier = track.splitUpgrade.firstTier
-        local secondTier = track.splitUpgrade.secondTier
-        local remainingFirstTier = math.min(remaining, math.max(0, firstTier.levels - current))
-        local remainingSecondTier = math.max(0, remaining - remainingFirstTier)
+    if tooltipInfo.type == "fullyUpgraded" then
+        GameTooltip:AddLine("Fully Upgraded")
+        GameTooltip:AddLine(string.format("%s Track %d/%d",
+                tooltipInfo.trackName,
+                tooltipInfo.currentNum,
+                tooltipInfo.maxNum),
+            1, 1, 1)
+        return
+    end
 
-        if remainingFirstTier > 0 and firstTier.crest then
-            local crestType = firstTier.shortname:upper()
-            local baseData = addon.CREST_BASE[crestType]
-            local mythicText = CURRENCY.CRESTS[crestType] and CURRENCY.CRESTS[crestType].mythicLevel > 0 and
-                string.format(" (M%d+)", CURRENCY.CRESTS[crestType].mythicLevel) or ""
-            
-            -- Get currency icon
-            if CURRENCY.CRESTS[crestType] and CURRENCY.CRESTS[crestType].currencyID then
-                local currencyID = CURRENCY.CRESTS[crestType].currencyID
-                local iconFileID = C_CurrencyInfo.GetCurrencyInfo(currencyID).iconFileID
-                local iconText = CreateTextureMarkup(iconFileID, 64, 64, 16, 16, 0, 1, 0, 1)
-                tooltipFrame:AddLine(string.format("%s %d x |cFF%s%s Undermine Crest%s|r", 
-                    iconText, 
-                    remainingFirstTier * CRESTS_TO_UPGRADE, 
-                    baseData.color,
-                    baseData.baseName,
-                    mythicText))
+    if tooltipInfo.type == "upgradeable" then
+        GameTooltip:AddLine("Upgrade Requirements:")
+
+        -- Handle split upgrade requirements
+        if tooltipInfo.requirements.firstTier or tooltipInfo.requirements.secondTier then
+            if tooltipInfo.requirements.firstTier then
+                local req = tooltipInfo.requirements.firstTier
+                local baseData = addon.CREST_BASE[req.crestType]
+                local mythicText = req.mythicLevel > 0 and string.format(" (M%d+)", req.mythicLevel) or ""
+
+                if CURRENCY.CRESTS[req.crestType] and CURRENCY.CRESTS[req.crestType].currencyID then
+                    local currencyID = CURRENCY.CRESTS[req.crestType].currencyID
+                    local iconFileID = C_CurrencyInfo.GetCurrencyInfo(currencyID).iconFileID
+                    local iconText = CreateTextureMarkup(iconFileID, 64, 64, 16, 16, 0, 1, 0, 1)
+                    GameTooltip:AddLine(string.format("%s %d x |cFF%s%s Undermine Crest%s|r",
+                        iconText,
+                        req.count,
+                        baseData.color,
+                        baseData.baseName,
+                        mythicText))
+                end
             end
-        end
 
-        if remainingSecondTier > 0 and secondTier.crest then
-            local crestType = secondTier.shortname:upper()
-            local baseData = addon.CREST_BASE[crestType]
-            local mythicText = CURRENCY.CRESTS[crestType] and CURRENCY.CRESTS[crestType].mythicLevel > 0 and
-                string.format(" (M%d+)", CURRENCY.CRESTS[crestType].mythicLevel) or ""
-            
-            -- Get currency icon
-            if CURRENCY.CRESTS[crestType] and CURRENCY.CRESTS[crestType].currencyID then
-                local currencyID = CURRENCY.CRESTS[crestType].currencyID
+            if tooltipInfo.requirements.secondTier then
+                local req = tooltipInfo.requirements.secondTier
+                local baseData = addon.CREST_BASE[req.crestType]
+                local mythicText = req.mythicLevel > 0 and string.format(" (M%d+)", req.mythicLevel) or ""
+
+                if CURRENCY.CRESTS[req.crestType] and CURRENCY.CRESTS[req.crestType].currencyID then
+                    local currencyID = CURRENCY.CRESTS[req.crestType].currencyID
+                    local iconFileID = C_CurrencyInfo.GetCurrencyInfo(currencyID).iconFileID
+                    local iconText = CreateTextureMarkup(iconFileID, 64, 64, 16, 16, 0, 1, 0, 1)
+                    GameTooltip:AddLine(string.format("%s %d x |cFF%s%s Undermine Crest%s|r",
+                        iconText,
+                        req.count,
+                        baseData.color,
+                        baseData.baseName,
+                        mythicText))
+                end
+            end
+        elseif tooltipInfo.requirements.standard then
+            local req = tooltipInfo.requirements.standard
+            local baseData = addon.CREST_BASE[req.crestType]
+            local mythicText = req.mythicLevel > 0 and string.format(" (M%d+)", req.mythicLevel) or ""
+
+            if CURRENCY.CRESTS[req.crestType] and CURRENCY.CRESTS[req.crestType].currencyID then
+                local currencyID = CURRENCY.CRESTS[req.crestType].currencyID
                 local iconFileID = C_CurrencyInfo.GetCurrencyInfo(currencyID).iconFileID
                 local iconText = CreateTextureMarkup(iconFileID, 64, 64, 16, 16, 0, 1, 0, 1)
-                tooltipFrame:AddLine(string.format("%s %d x |cFF%s%s Undermine Crest%s|r", 
-                    iconText, 
-                    remainingSecondTier * CRESTS_TO_UPGRADE, 
+                GameTooltip:AddLine(string.format("%s %d x |cFF%s%s Undermine Crest%s|r",
+                    iconText,
+                    req.count,
                     baseData.color,
                     baseData.baseName,
                     mythicText))
             end
         end
     end
-
-    tooltipFrame:Show()
 end
 
 -- Process a single upgrade track and update crest requirements
@@ -305,32 +324,32 @@ end
 local function GetCachedTooltipData(slotID, itemLink)
     local currentTime = GetTime()
     local cacheKey = itemLink or slotID
-    
+
     if tooltipCache[cacheKey] and (currentTime - tooltipCache[cacheKey].time) < 1 then
         return tooltipCache[cacheKey].data
     end
-    
+
     -- Force a tooltip refresh to get the most current data
     tooltipFrame:SetOwner(UIParent, "ANCHOR_NONE")
     tooltipFrame:SetInventoryItem("player", slotID)
     tooltipFrame:Hide()
-    
+
     -- Get fresh tooltip data
     local data = C_TooltipInfo.GetInventoryItem("player", slotID)
-    
+
     -- Cache the data
     tooltipCache[cacheKey] = {
         time = currentTime,
         data = data
     }
-    
+
     return data
 end
 
 -- Optimization: Cache item info
 local function GetCachedItemInfo(itemLink)
     if not itemCache[itemLink] then
-        itemCache[itemLink] = {C_Item.GetItemInfo(itemLink)}
+        itemCache[itemLink] = { C_Item.GetItemInfo(itemLink) }
     end
     return unpack(itemCache[itemLink])
 end
@@ -345,11 +364,6 @@ local function FormatTotalCrestText(sortedCrests)
             local remaining = math.max(0, data.needed - data.current)
             local potentialExtra = data.upgraded * CRESTS_TO_UPGRADE
 
-            
-            local upgradedText = data.upgraded and data.upgraded > 0
-                and string.format(" [+%d]", potentialExtra)
-                or ""
-
             -- Get color from CREST_BASE
             local baseData = addon.CREST_BASE[crestType]
             local colorCode = baseData and baseData.color and string.format("|cFF%s", baseData.color) or "|cFFFFFFFF"
@@ -360,16 +374,16 @@ local function FormatTotalCrestText(sortedCrests)
                 local highestLevel = data.mythicLevel
                 local lowestReward = 0
                 local highestReward = 0
-                
+
                 -- Get all available M+ levels for this crest type
                 if addon.CREST_REWARDS[crestType] then
                     for level, rewards in pairs(addon.CREST_REWARDS[crestType]) do
                         if level >= data.mythicLevel then
-                            if level < lowestLevel then 
+                            if level < lowestLevel then
                                 lowestLevel = level
                                 lowestReward = rewards.timed
                             end
-                            if level > highestLevel then 
+                            if level > highestLevel then
                                 highestLevel = level
                                 highestReward = rewards.timed
                             end
@@ -383,16 +397,14 @@ local function FormatTotalCrestText(sortedCrests)
                 local adjustedRemaining = math.max(0, remaining - potentialExtra)
                 local maxRuns = 0
                 local minRuns = 0
-                
+
                 if adjustedRemaining > 0 then
                     maxRuns = math.ceil(adjustedRemaining / lowestReward)
                     minRuns = math.ceil(adjustedRemaining / highestReward)
                 end
-                
 
-                
                 local runsText = ""
-                
+
                 if adjustedRemaining <= 0 then
                     runsText = "No runs needed"
                 elseif lowestLevel == highestLevel then
@@ -401,20 +413,18 @@ local function FormatTotalCrestText(sortedCrests)
                     runsText = string.format("M%d-%d: %d-%d runs", lowestLevel, highestLevel, maxRuns, minRuns)
                 end
 
-                totalText = totalText .. string.format("\n%s%s|r: %d/%d%s (%s)",
+                totalText = totalText .. string.format("\n%s%s|r: %d/%d (%s)",
                     colorCode,
                     crestType:sub(1, 1) .. crestType:sub(2):lower(),
                     data.current,
                     data.needed,
-                    upgradedText,
                     runsText)
             else
-                totalText = totalText .. string.format("\n%s%s|r: %d/%d%s",
+                totalText = totalText .. string.format("\n%s%s|r: %d/%d",
                     colorCode,
                     crestType:sub(1, 1) .. crestType:sub(2):lower(),
                     data.current,
-                    data.needed,
-                    upgradedText)
+                    data.needed)
             end
         end
     end
@@ -435,22 +445,21 @@ local function GetSortedCrests()
                 upgraded = data.upgraded or 0
             }
         }
-
     end
-    
+
     -- Sort by the order defined in CREST_ORDER
     table.sort(sortedCrests, function(a, b)
         local aIndex = 0
         local bIndex = 0
-        
+
         for i, crestType in ipairs(CREST_ORDER) do
             if a.crestType == crestType then aIndex = i end
             if b.crestType == crestType then bIndex = i end
         end
-        
+
         return aIndex < bIndex
     end)
-    
+
     return sortedCrests
 end
 
@@ -461,24 +470,39 @@ f:RegisterEvent("PLAYER_ENTERING_WORLD")
 f:RegisterEvent("CURRENCY_DISPLAY_UPDATE")
 f:RegisterEvent("BAG_UPDATE")
 
+-- Throttle update calls
+local updateThrottled = false
+local function ThrottledUpdate()
+    if not updateThrottled then
+        updateThrottled = true
+        C_Timer.After(0.1, function()
+            if IsCharacterTabSelected() then
+                UpdateDisplay()
+            end
+            updateThrottled = false
+        end)
+    end
+end
+
 -- Modified event handler with better initialization
 f:SetScript("OnEvent", function(_, event)
     if event == "PLAYER_ENTERING_WORLD" then
-        -- Initialize immediately
-        addon.InitializeUpgradeTexts()
-        -- Then run update
-        UpdateDisplay()
-        -- Schedule another update slightly later to catch any late-loading data
-        C_Timer.After(1, function()
+        -- Initialize once
+        if not addon.initialized then
+            addon.InitializeUpgradeTexts()
+            addon.initialized = true
             UpdateDisplay()
-        end)
+        end
     elseif event == "PLAYER_LOGIN" then
-        addon.InitializeUpgradeTexts()
-        UpdateDisplay()
-    elseif event == "CURRENCY_DISPLAY_UPDATE" or 
-           event == "BAG_UPDATE" or 
-           event == "PLAYER_EQUIPMENT_CHANGED" then
-        UpdateDisplay()
+        if not addon.initialized then
+            addon.InitializeUpgradeTexts()
+            addon.initialized = true
+            UpdateDisplay()
+        end
+    elseif event == "CURRENCY_DISPLAY_UPDATE" or
+        event == "BAG_UPDATE" or
+        event == "PLAYER_EQUIPMENT_CHANGED" then
+        ThrottledUpdate()
     end
 end)
 
@@ -489,7 +513,7 @@ local function ForceCurrencyUpdate()
     if addon.ShowCrestCurrency then
         addon.ShowCrestCurrency()
     end
-    
+
     UpdateFrameSizeToText()
 end
 
@@ -535,7 +559,7 @@ local function IsAddonLoaded(name)
     -- Try the newer API first
     if C_AddOns and C_AddOns.IsAddOnLoaded then
         return C_AddOns.IsAddOnLoaded(name)
-    -- Fall back to the older global function if available
+        -- Fall back to the older global function if available
     elseif _G.IsAddOnLoaded then
         return _G.IsAddOnLoaded(name)
     end
@@ -556,7 +580,7 @@ f:SetScript("OnEvent", function(self, event, ...)
             itemUpgradeFrameHooked = true
         end
     end
-    
+
     -- Call the original OnEvent handler
     if originalOnEvent then
         originalOnEvent(self, event, ...)
@@ -611,3 +635,6 @@ end
 
 -- Export ShowCrestCurrency function
 addon.ShowCrestCurrency = ShowCrestCurrency
+
+-- Call it initially
+C_Timer.After(0.1, ShowCrestCurrency)

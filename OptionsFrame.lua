@@ -4,9 +4,9 @@ local TEXT_POSITIONS = addon.TEXT_POSITIONS
 
 local function CreateOptionsFrame(parent)
     local frame = CreateFrame("Frame", "FullyUpgradedOptions", parent, "BackdropTemplate")
-    frame:SetSize(250, 35)
+    frame:SetSize(280, 35)
     frame:SetPoint("TOP", parent, "BOTTOM", 0, 0)
-    
+
     frame:SetBackdrop({
         bgFile = "Interface/Buttons/WHITE8x8",
         edgeFile = "Interface/Buttons/WHITE8x8",
@@ -22,7 +22,7 @@ local function CreateOptionsFrame(parent)
     local checkbox = CreateFrame("Button", nil, frame, "BackdropTemplate")
     checkbox:SetSize(12, 12)
     checkbox:SetPoint("LEFT", frame, "LEFT", 10, 0)
-    
+
     checkbox:SetBackdrop({
         bgFile = "Interface/Buttons/WHITE8x8",
         edgeFile = "Interface/Buttons/WHITE8x8",
@@ -40,16 +40,16 @@ local function CreateOptionsFrame(parent)
     checkbox.fill:SetAllPoints()
     checkbox.fill:SetPoint("TOPLEFT", 2, -2)
     checkbox.fill:SetPoint("BOTTOMRIGHT", -2, 2)
-    
+
     -- Set initial state
     checkbox.checked = true
     checkbox.fill:Show()
-    
+
     local checkboxLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     checkboxLabel:SetPoint("LEFT", checkbox, "RIGHT", 4, 0)
     checkboxLabel:SetText("Show Text")
     checkboxLabel:SetTextColor(1, 0.82, 0) -- Gold color
-    
+
     checkbox:SetScript("OnClick", function(self)
         self.checked = not self.checked
         if self.checked then
@@ -80,8 +80,8 @@ local function CreateOptionsFrame(parent)
 
     local function Initialize(self, level)
         local info = UIDropDownMenu_CreateInfo()
-        local positions = {"TR", "TL", "BR", "BL", "C"}
-        
+        local positions = { "TR", "TL", "BR", "BL", "C" }
+
         for _, pos in ipairs(positions) do
             info.text = pos
             info.value = pos
@@ -122,4 +122,4 @@ local function CreateOptionsFrame(parent)
 end
 
 -- Export the create function to the addon namespace
-addon.CreateOptionsFrame = CreateOptionsFrame 
+addon.CreateOptionsFrame = CreateOptionsFrame
