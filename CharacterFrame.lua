@@ -292,25 +292,6 @@ local function UpdateAllUpgradeTexts()
             ProcessEquipmentSlot(slot, button)
         end
     end
-
-    -- Update total text display
-    local sortedCrests = addon.GetSortedCrests()
-    local totalText = addon.FormatTotalCrestText(sortedCrests)
-
-    if totalText ~= "" then
-        -- Ensure we're using the same text frame from FullyUpgraded.lua
-        if addon.totalCrestText then
-            addon.totalCrestText:SetText("Fully Upgraded:" .. totalText)
-            addon.totalCrestText:Show()
-            addon.UpdateFrameSizeToText()
-        end
-    else
-        if addon.totalCrestText then
-            addon.totalCrestText:SetText("")
-            addon.totalCrestText:Hide()
-            addon.UpdateFrameSizeToText()
-        end
-    end
 end
 
 -- Update text positions
@@ -398,42 +379,82 @@ local function UpdateCrestCurrency(frame)
         child:SetParent(nil)
     end
 
-    local xOffset = -5
-    local yOffset = 0
+    -- First pass: calculate total width
+    local totalWidth = 0
     local iconSize = 16
+    local spacing = 6 -- Spacing between currency groups
+    local elements = {}
 
-    -- Display crests in order
+    -- Calculate widths and create elements
     for _, crestType in ipairs(addon.CREST_ORDER) do
         local crestData = addon.CURRENCY.CRESTS[crestType]
         if crestData and crestData.currencyID then
             local info = C_CurrencyInfo.GetCurrencyInfo(crestData.currencyID)
             if info then
-                -- Create icon
-                local icon = CreateFrame("Frame", nil, frame)
-                icon:SetSize(iconSize, iconSize)
-                icon:SetPoint("TOPRIGHT", frame, "TOPRIGHT", xOffset, yOffset)
+                -- Create temporary font string to measure text width
+                local tempText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+                tempText:SetText(info.quantity)
+                local textWidth = tempText:GetStringWidth()
+                tempText:Hide()
 
-                local texture = icon:CreateTexture(nil, "ARTWORK")
-                texture:SetAllPoints()
-                texture:SetTexture(info.iconFileID)
+                -- Add to total width
+                totalWidth = totalWidth + iconSize + textWidth + 2 -- 2 for spacing between icon and text
 
-                -- Create count text
-                local count = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-                count:SetPoint("RIGHT", icon, "LEFT", -2, 0)
-                count:SetText(info.quantity)
+                -- Store element info
+                table.insert(elements, {
+                    crestType = crestType,
+                    info = info,
+                    textWidth = textWidth
+                })
 
-                -- Color based on CREST_BASE
-                local baseData = addon.CREST_BASE[crestType]
-                if baseData and baseData.color then
-                    count:SetTextColor(
-                        tonumber(baseData.color:sub(1, 2), 16) / 255,
-                        tonumber(baseData.color:sub(3, 4), 16) / 255,
-                        tonumber(baseData.color:sub(5, 6), 16) / 255
-                    )
+                -- Add separator width if not last
+                if _ < #addon.CREST_ORDER then
+                    totalWidth = totalWidth + spacing + 2 -- 2 for separator width
                 end
-
-                xOffset = xOffset - (iconSize + count:GetStringWidth() + 5)
             end
+        end
+    end
+
+    -- Calculate starting X position to center everything
+    local xOffset = (frame:GetWidth() - totalWidth) / 2
+    xOffset = frame:GetWidth() - xOffset -- Convert to right-side offset
+
+    -- Second pass: create and position elements
+    for i, element in ipairs(elements) do
+        -- Create icon
+        local icon = CreateFrame("Frame", nil, frame)
+        icon:SetSize(iconSize, iconSize)
+        icon:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -xOffset, 0)
+
+        local texture = icon:CreateTexture(nil, "ARTWORK")
+        texture:SetAllPoints()
+        texture:SetTexture(element.info.iconFileID)
+
+        -- Create count text
+        local count = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        count:SetPoint("RIGHT", icon, "LEFT", -2, 0)
+        count:SetText(element.info.quantity)
+
+        -- Color based on CREST_BASE
+        local baseData = addon.CREST_BASE[element.crestType]
+        if baseData and baseData.color then
+            count:SetTextColor(
+                tonumber(baseData.color:sub(1, 2), 16) / 255,
+                tonumber(baseData.color:sub(3, 4), 16) / 255,
+                tonumber(baseData.color:sub(5, 6), 16) / 255
+            )
+        end
+
+        -- Update xOffset
+        xOffset = xOffset + iconSize + element.textWidth + 2
+
+        -- Add separator if not last
+        if i < #elements then
+            local separator = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+            separator:SetPoint("RIGHT", count, "LEFT", -2, 0)
+            separator:SetText("|")
+            separator:SetTextColor(0.5, 0.5, 0.5)
+            xOffset = xOffset + spacing + 2
         end
     end
 end

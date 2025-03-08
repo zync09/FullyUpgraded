@@ -14,36 +14,43 @@ end
 local function CreateCrestDisplay(parent)
     local display = {
         frame = CreateFrame("Frame", nil, parent),
+        container = CreateFrame("Frame", nil, parent),
         shortName = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal"),
         icon = parent:CreateTexture(nil, "ARTWORK"),
         count = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal"),
-        separator = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        runsNeeded = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     }
 
+    -- Set up container frame for better layout control
+    display.container:SetSize(230, 16) -- Reduced height and width
+
     -- Set up frame for tooltip and layout
-    display.frame:SetSize(60, 20)
+    display.frame:SetSize(220, 16) -- Reduced height and width
+    display.frame:SetParent(display.container)
+    display.frame:SetPoint("LEFT", display.container, "LEFT", 5, 0)
     display.frame:EnableMouse(true)
 
-    -- Set up shortName
+    -- Set up shortName with consistent width and alignment
     display.shortName:SetFont(display.shortName:GetFont(), 12, "OUTLINE")
-    display.shortName:SetPoint("LEFT", display.frame, "LEFT", 0, 0)
+    display.shortName:SetPoint("LEFT", display.frame, "LEFT", 8, 0)
     display.shortName:SetJustifyH("LEFT")
+    display.shortName:SetWidth(15) -- Fixed width for consistent icon alignment
 
-    -- Set up icon
+    -- Set up icon with precise positioning
     display.icon:SetSize(16, 16)
-    display.icon:SetPoint("LEFT", display.shortName, "RIGHT", 2, 0)
+    display.icon:SetPoint("LEFT", display.frame, "LEFT", 26, 0) -- Fixed position relative to frame
 
-    -- Set up count text
+    -- Set up count text with consistent spacing
     display.count:SetFont(display.count:GetFont(), 12, "OUTLINE")
-    display.count:SetPoint("LEFT", display.icon, "RIGHT", 2, 0)
+    display.count:SetPoint("LEFT", display.icon, "RIGHT", 6, 0)
     display.count:SetJustifyH("LEFT")
-    display.count:SetTextColor(1, 1, 1) -- White color
+    display.count:SetTextColor(1, 1, 1)
 
-    -- Set up separator
-    display.separator:SetFont(display.separator:GetFont(), 12, "OUTLINE")
-    display.separator:SetText("|")
-    display.separator:SetTextColor(0.5, 0.5, 0.5) -- Gray color
-    display.separator:SetPoint("RIGHT", display.frame, "RIGHT", 0, 0)
+    -- Set up runs needed text with right alignment
+    display.runsNeeded:SetFont(display.count:GetFont(), 12, "OUTLINE")
+    display.runsNeeded:SetPoint("RIGHT", display.frame, "RIGHT", -5, 0) -- Position from right edge
+    display.runsNeeded:SetJustifyH("RIGHT")
+    display.runsNeeded:SetTextColor(0.7, 0.7, 0.7)
 
     return display
 end
@@ -52,27 +59,33 @@ end
 local function PositionCrestDisplay(display, parent, index, totalDisplays)
     if not display then return end
 
-    local parentWidth = parent:GetWidth()
-    local displayWidth = parentWidth / totalDisplays
-    local xOffset = (index - 1) * displayWidth
+    local spacing = 1          -- Spacing between currency displays
+    local baseHeight = 16      -- Reduced height of each currency display
+    local containerWidth = 230 -- Match container width from CreateCrestDisplay
 
-    -- Position the frame
-    display.frame:ClearAllPoints()
-    display.frame:SetPoint("LEFT", parent, "LEFT", xOffset, 0)
-    display.frame:SetWidth(displayWidth)
+    -- Position the container vertically with consistent spacing
+    display.container:ClearAllPoints()
+    if index == 1 then
+        display.container:SetPoint("TOP", parent, "TOP", 0, -1)
+    else
+        display.container:SetPoint("TOP", parent, "TOP", 0, -((index - 1) * (baseHeight + spacing)) - 1)
+    end
+
+    -- Set container width
+    display.container:SetWidth(containerWidth)
+
+    -- Update parent frame height based on total displays
+    local totalHeight = (totalDisplays * baseHeight) + ((totalDisplays - 1) * spacing) + 2
+    parent:SetHeight(totalHeight)
+    parent:SetWidth(containerWidth)
 
     -- Show all elements
+    display.container:Show()
     display.frame:Show()
     display.shortName:Show()
     display.icon:Show()
     display.count:Show()
-
-    -- Show separator unless it's the last item
-    if index < totalDisplays then
-        display.separator:Show()
-    else
-        display.separator:Hide()
-    end
+    display.runsNeeded:Show()
 end
 
 -- Update a single crest display
@@ -84,6 +97,7 @@ local function UpdateCrestDisplay(display, info, crestData)
     display.shortName:SetText(shortName)
 
     -- Set color from CREST_BASE using the exact crest type (WEATHERED, CARVED, etc)
+    local crestBaseData
     for crestType, baseData in pairs(addon.CREST_BASE) do
         if baseData.shortCode == crestData.reallyshortname then
             local r = tonumber(baseData.color:sub(1, 2), 16) / 255
@@ -92,6 +106,8 @@ local function UpdateCrestDisplay(display, info, crestData)
             -- Apply color to both shortName and count
             display.shortName:SetTextColor(r, g, b)
             display.count:SetTextColor(r, g, b)
+            crestBaseData = baseData
+            crestBaseData.crestType = crestType -- Store the actual crest type
             break
         end
     end
@@ -99,8 +115,80 @@ local function UpdateCrestDisplay(display, info, crestData)
     -- Update icon
     display.icon:SetTexture(info.iconFileID)
 
-    -- Update count text
-    display.count:SetText(info.quantity)
+    -- Update count text (without runs calculation)
+    local needed = crestData.needed or 0
+    local current = info.quantity or 0
+    display.count:SetText(current .. "/" .. needed)
+
+    -- Reset and update runs needed text
+    display.runsNeeded:SetText("")
+
+    -- Calculate runs needed if this crest type has mythic requirements
+    if crestBaseData and crestBaseData.mythicLevel and crestBaseData.mythicLevel > 0 then
+        -- Only show runs if we need more crests
+        if current < needed then
+            -- Get rewards for this crest type
+            local rewards = addon.CREST_REWARDS[crestBaseData.crestType]
+
+            -- Debug output
+            if addon.debugMode then
+                print("Crest Type:", crestBaseData.crestType)
+                print("Has Rewards:", rewards ~= nil)
+                print("Mythic Level:", crestBaseData.mythicLevel)
+                print("Current/Needed:", current, "/", needed)
+            end
+
+            if rewards then
+                local remaining = needed - current
+
+                -- Find lowest M+ level reward (from minimum required level)
+                local lowestReward = nil
+                for level = crestBaseData.mythicLevel, 20 do
+                    if rewards[level] and rewards[level].timed then
+                        lowestReward = rewards[level].timed
+                        break
+                    end
+                end
+
+                -- Find highest M+ level reward
+                local highestReward = nil
+                for level = 20, crestBaseData.mythicLevel, -1 do
+                    if rewards[level] and rewards[level].timed then
+                        highestReward = rewards[level].timed
+                        break
+                    end
+                end
+
+                -- Debug output
+                if addon.debugMode then
+                    print("Lowest Reward:", lowestReward)
+                    print("Highest Reward:", highestReward)
+                end
+
+                if lowestReward and highestReward then
+                    -- Calculate min/max runs needed
+                    local maxRuns = math.ceil(remaining / lowestReward)
+                    local minRuns = math.ceil(remaining / highestReward)
+
+
+                    -- Set runs needed text with "runs" prefix in smaller font
+                    display.runsNeeded:SetFont(display.runsNeeded:GetFont(), 10, "OUTLINE")
+                    display.runsNeeded:SetText(string.format("M+ runs (%d/%d)", minRuns, maxRuns))
+
+                    -- Ensure runs text is properly positioned
+                    display.runsNeeded:ClearAllPoints()
+                    display.runsNeeded:SetPoint("RIGHT", display.frame, "RIGHT", -5, 0)
+
+                    -- Add a timer to recalculate positions
+                    C_Timer.After(0.05, function()
+                        if display.container:GetParent().UpdateFrameSize then
+                            display.container:GetParent():UpdateFrameSize()
+                        end
+                    end)
+                end
+            end
+        end
+    end
 
     -- Set up tooltip
     display.frame:SetScript("OnEnter", function(self)
@@ -182,7 +270,7 @@ local function UpdateCrestCurrency(parent)
             if display.shortName then display.shortName:Hide() end
             if display.icon then display.icon:Hide() end
             if display.count then display.count:Hide() end
-            if display.separator then display.separator:Hide() end
+            if display.runsNeeded then display.runsNeeded:Hide() end
         end
     end
 

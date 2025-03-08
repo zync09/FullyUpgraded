@@ -42,8 +42,35 @@ local fontStringPool = CreateFontStringPool()
 
 -- Create master frame that will contain both displays
 local masterFrame = CreateFrame("Frame", "GearUpgradeMasterFrame", CharacterFrame, "BackdropTemplate")
-masterFrame:SetPoint("TOPRIGHT", CharacterFrame, "BOTTOMRIGHT", 0, 0)
-masterFrame:SetSize(280, 30) -- Initial size for just currency frame
+masterFrame:SetPoint("BOTTOMLEFT", CharacterFrame, "BOTTOMRIGHT", 0, 0)
+masterFrame:SetSize(230, 100) -- Adjusted size to be more compact
+
+-- Function to update master frame size
+local function UpdateMasterFrameSize()
+    if not currencyFrame then return end
+
+    local padding = 8 -- Reduced padding
+    local titleHeight = titleText and titleText:GetHeight() or 0
+    local currencyHeight = currencyFrame:GetHeight()
+    local currencyWidth = currencyFrame:GetWidth()
+
+    -- Set master frame size based on content plus padding
+    masterFrame:SetSize(
+        math.max(230, currencyWidth + padding * 2), -- Minimum width of 230
+        titleHeight + currencyHeight + padding * 2
+    )
+end
+
+-- Add a timer to update sizes after text rendering
+local function DelayedSizeUpdate()
+    C_Timer.After(0.1, function()
+        UpdateMasterFrameSize()
+        if addon.UpdateCrestCurrency then
+            addon.UpdateCrestCurrency(currencyFrame)
+        end
+    end)
+end
+
 masterFrame:SetBackdrop({
     bgFile = "Interface/Buttons/WHITE8x8",
     edgeFile = "Interface/Buttons/WHITE8x8",
@@ -54,22 +81,20 @@ masterFrame:SetBackdrop({
 masterFrame:SetBackdropColor(0.1, 0.1, 0.1, 0.95)
 masterFrame:SetBackdropBorderColor(0, 0, 0, 1)
 
+-- Create title text
+local titleText = masterFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+titleText:SetPoint("TOP", masterFrame, "TOP", 0, -5)
+titleText:SetText("Fully Upgraded:")
+titleText:SetTextColor(1, 1, 0) -- Gold color
+
 -- Create currency frame as a child of master frame (no backdrop needed)
 local currencyFrame = CreateFrame("Frame", "GearUpgradeCurrencyFrame", masterFrame)
-currencyFrame:SetPoint("TOPRIGHT", masterFrame, "TOPRIGHT", 0, 0)
-currencyFrame:SetSize(250, 30)
-currencyFrame:Show()
+currencyFrame:SetPoint("TOP", titleText, "BOTTOM", 0, -2) -- Position relative to title
+currencyFrame:SetSize(140, 20)                            -- Initial size, will be updated by CrestCurrencyFrame.lua
 
--- Create total crest frame as a child of master frame (no backdrop needed)
-local totalCrestFrame = CreateFrame("Frame", "GearUpgradeTotalFrame", masterFrame)
-totalCrestFrame:SetPoint("TOPRIGHT", currencyFrame, "BOTTOMRIGHT", 0, 0)
-totalCrestFrame:SetSize(250, 0) -- Start with 0 height
-
-local totalCrestText = totalCrestFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-totalCrestText:SetPoint("BOTTOMRIGHT", totalCrestFrame, "BOTTOMRIGHT", -2, 5)
-totalCrestText:SetTextColor(1, 0.8, 0)
-totalCrestText:SetFont(totalCrestText:GetFont(), 12, "OUTLINE")
-totalCrestText:SetJustifyH("RIGHT")
+-- Set up frame update events
+currencyFrame:SetScript("OnSizeChanged", UpdateMasterFrameSize)
+C_Timer.After(0.1, UpdateMasterFrameSize) -- Initial size update after everything is created
 
 -- Add after other local variables
 local debugMode = false -- Set to true to enable debug messages
@@ -79,20 +104,6 @@ local function IsCharacterTabSelected()
     return PaperDollFrame:IsVisible()
 end
 
-local function UpdateFrameSizeToText()
-    local currencyHeight = 30 -- Fixed height for currency frame
-    local textHeight = 0
-
-    if totalCrestText:IsShown() and totalCrestText:GetText() and totalCrestText:GetText() ~= "" then
-        textHeight = totalCrestText:GetStringHeight() + 10 -- Add padding
-    end
-
-    totalCrestFrame:SetHeight(textHeight)              -- Only update height, keep width
-    masterFrame:SetHeight(currencyHeight + textHeight) -- Update master frame height
-end
-
-UpdateFrameSizeToText()
-
 -- Function to update frame visibility
 local function UpdateFrameVisibility()
     if IsCharacterTabSelected() then
@@ -101,6 +112,13 @@ local function UpdateFrameVisibility()
         masterFrame:Hide()
     end
 end
+
+-- Hook character frame tab changes
+CharacterFrame:HookScript("OnShow", UpdateFrameVisibility)
+CharacterFrame:HookScript("OnHide", function() masterFrame:Hide() end)
+
+-- Hook tab changes
+hooksecurefunc("ToggleCharacter", UpdateFrameVisibility)
 
 local function CalculateUpgradedCrests()
     -- Reset upgraded counts
@@ -176,9 +194,7 @@ local function UpdateDisplay()
 
         -- Update the display
         if addon.UpdateAllUpgradeTexts then
-            C_Timer.After(0, function()
-                addon.UpdateAllUpgradeTexts()
-            end)
+            addon.UpdateAllUpgradeTexts()
         end
 
         -- Make sure the currency frame is visible
@@ -355,103 +371,18 @@ local function GetCachedItemInfo(itemLink)
     return unpack(itemCache[itemLink])
 end
 
--- Format the total text for crests
-local function FormatTotalCrestText(sortedCrests)
-    local totalText = ""
-    for _, crestData in ipairs(sortedCrests) do
-        local crestType = crestData.crestType
-        local data = crestData.data
-        if data.current > 0 or data.needed > 0 then -- Show if we have any or need any
-            local remaining = math.max(0, data.needed - data.current)
-            local potentialExtra = data.upgraded * CRESTS_TO_UPGRADE
-
-            -- Get color from CREST_BASE
-            local baseData = addon.CREST_BASE[crestType]
-            local colorCode = baseData and baseData.color and string.format("|cFF%s", baseData.color) or "|cFFFFFFFF"
-
-            if data.mythicLevel and data.mythicLevel > 0 then
-                -- Calculate actual remaining after upgrades
-                local actualRemaining = math.max(0, remaining - potentialExtra)
-                local minLevel = data.mythicLevel
-                local maxLevel = data.mythicLevel
-                local minRuns = math.huge
-                local maxRuns = 0
-
-                -- Get all available M+ levels for this crest type
-                if addon.CREST_REWARDS[crestType] then
-                    -- Calculate runs needed at each level
-                    for level, rewards in pairs(addon.CREST_REWARDS[crestType]) do
-                        if level >= data.mythicLevel then
-                            local runsNeeded = math.ceil(actualRemaining / rewards.timed)
-                            if runsNeeded > 0 then
-                                maxLevel = math.max(maxLevel, level)
-                                if runsNeeded < minRuns then
-                                    minRuns = runsNeeded
-                                end
-                                if level == data.mythicLevel then
-                                    maxRuns = runsNeeded
-                                end
-                            end
-                        end
-                    end
-                end
-
-                local runsText = ""
-                if actualRemaining <= 0 then
-                    runsText = "No runs needed"
-                else
-                    runsText = string.format("M%d-%d: %d-%d runs", minLevel, maxLevel, maxRuns, minRuns)
-                end
-
-                totalText = totalText .. string.format("\n%s%s|r: %d/%d (%s)",
-                    colorCode,
-                    crestType:sub(1, 1) .. crestType:sub(2):lower(),
-                    data.current,
-                    data.needed,
-                    runsText)
-            else
-                totalText = totalText .. string.format("\n%s%s|r: %d/%d",
-                    colorCode,
-                    crestType:sub(1, 1) .. crestType:sub(2):lower(),
-                    data.current,
-                    data.needed)
-            end
-        end
+-- Function to show crest currency
+local function ShowCrestCurrency()
+    if addon.UpdateCrestCurrency then
+        addon.UpdateCrestCurrency(currencyFrame)
     end
-    return totalText
 end
 
--- Sort crests by the predefined order in CREST_ORDER (Weathered to Gilded)
-local function GetSortedCrests()
-    local sortedCrests = {}
-    for crestType, data in pairs(CURRENCY.CRESTS) do
-        -- Include all crests, not just those with needed > 0
-        sortedCrests[#sortedCrests + 1] = {
-            crestType = crestType,
-            data = {
-                mythicLevel = data.mythicLevel or 0,
-                current = data.current or 0,
-                needed = data.needed or 0,
-                upgraded = data.upgraded or 0
-            }
-        }
-    end
+-- Export ShowCrestCurrency function
+addon.ShowCrestCurrency = ShowCrestCurrency
 
-    -- Sort by the order defined in CREST_ORDER
-    table.sort(sortedCrests, function(a, b)
-        local aIndex = 0
-        local bIndex = 0
-
-        for i, crestType in ipairs(CREST_ORDER) do
-            if a.crestType == crestType then aIndex = i end
-            if b.crestType == crestType then bIndex = i end
-        end
-
-        return aIndex < bIndex
-    end)
-
-    return sortedCrests
-end
+-- Call it initially
+C_Timer.After(0.1, ShowCrestCurrency)
 
 -- **Event Handling**
 f:RegisterEvent("PLAYER_LOGIN")
@@ -465,12 +396,10 @@ local updateThrottled = false
 local function ThrottledUpdate()
     if not updateThrottled then
         updateThrottled = true
-        C_Timer.After(0.1, function()
-            if IsCharacterTabSelected() then
-                UpdateDisplay()
-            end
-            updateThrottled = false
-        end)
+        if IsCharacterTabSelected() then
+            UpdateDisplay()
+        end
+        updateThrottled = false
     end
 end
 
@@ -483,12 +412,14 @@ f:SetScript("OnEvent", function(_, event)
             addon.initialized = true
             UpdateDisplay()
         end
+        UpdateFrameVisibility()
     elseif event == "PLAYER_LOGIN" then
         if not addon.initialized then
             addon.InitializeUpgradeTexts()
             addon.initialized = true
             UpdateDisplay()
         end
+        UpdateFrameVisibility()
     elseif event == "CURRENCY_DISPLAY_UPDATE" or
         event == "BAG_UPDATE" or
         event == "PLAYER_EQUIPMENT_CHANGED" then
@@ -504,12 +435,10 @@ local function ForceCurrencyUpdate()
         addon.ShowCrestCurrency()
     end
 
-    -- Force a display update after currency update
-    C_Timer.After(0, function()
-        if addon.UpdateAllUpgradeTexts then
-            addon.UpdateAllUpgradeTexts()
-        end
-    end)
+    -- Update display immediately
+    if addon.UpdateAllUpgradeTexts then
+        addon.UpdateAllUpgradeTexts()
+    end
 end
 
 -- Add slash command handler
@@ -583,12 +512,10 @@ f:SetScript("OnEvent", function(self, event, ...)
 end)
 
 -- Try to hook immediately in case the frame is already loaded
-C_Timer.After(1, function()
-    if not itemUpgradeFrameHooked and IsAddonLoaded("Blizzard_ItemUpgradeUI") then
-        -- The ItemUpgradeFrame hooks are now handled in CharacterFrame.lua
-        itemUpgradeFrameHooked = true
-    end
-end)
+if not itemUpgradeFrameHooked and IsAddonLoaded("Blizzard_ItemUpgradeUI") then
+    -- The ItemUpgradeFrame hooks are now handled in CharacterFrame.lua
+    itemUpgradeFrameHooked = true
+end
 
 -- Optimization: Clean up resources when addon is disabled
 local function CleanupAddon()
@@ -608,28 +535,11 @@ C_Timer.NewTicker(5, ClearCaches)
 -- Export functions to addon namespace
 addon.Debug = Debug
 addon.UpdateDisplay = UpdateDisplay
-addon.UpdateFrameSizeToText = UpdateFrameSizeToText
 addon.SetUpgradeTooltip = SetUpgradeTooltip
 addon.ProcessUpgradeTrack = ProcessUpgradeTrack
 addon.GetCachedTooltipData = GetCachedTooltipData
 addon.GetCachedItemInfo = GetCachedItemInfo
-addon.FormatTotalCrestText = FormatTotalCrestText
-addon.GetSortedCrests = GetSortedCrests
 addon.CalculateUpgradedCrests = CalculateUpgradedCrests
 addon.CheckCurrencyForAllCrests = CheckCurrencyForAllCrests
 addon.GetCurrentSeasonItemLevelRange = GetCurrentSeasonItemLevelRange
-addon.totalCrestText = totalCrestText
 addon.ForceCurrencyUpdate = ForceCurrencyUpdate
-
--- Function to show crest currency
-local function ShowCrestCurrency()
-    if addon.UpdateCrestCurrency then
-        addon.UpdateCrestCurrency(currencyFrame)
-    end
-end
-
--- Export ShowCrestCurrency function
-addon.ShowCrestCurrency = ShowCrestCurrency
-
--- Call it initially
-C_Timer.After(0.1, ShowCrestCurrency)
