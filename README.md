@@ -1,8 +1,10 @@
 "Time is money, friend! And Fully Upgraded saves ya both! This nifty addon shows ya exactly how many upgrades yer gear’s got left AND how many Mythic+ runs you’ll need to get it maxed out. No more guesswork, no more wastin' time—or gold! Just strap it on, check yer gear, and get ready to make those bosses cough up the goods. Remember, friend: efficiency means profits, and profits mean ka-ching!"
 
-![image](https://github.com/user-attachments/assets/952ca42f-0357-4c32-9da1-9c9bfbeb612b)
-![image](https://github.com/user-attachments/assets/7e34a903-0406-4fdd-b3e5-ee6909d912ee)
-![image](https://github.com/user-attachments/assets/118f50dc-3867-4f81-8236-9a8c458059af)
+![image](https://github.com/user-attachments/assets/98b16e52-b3a9-4f1a-b869-b70a7cd1bd23)
+
+![image](https://github.com/user-attachments/assets/b3ed48fd-e9c1-4c96-8347-078fe87efb6c)
+![image](https://github.com/user-attachments/assets/83e47873-afde-47b5-bec4-cc2690a05ba5)
+
 
 
 ## Features
