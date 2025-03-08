@@ -42,7 +42,7 @@ local fontStringPool = CreateFontStringPool()
 
 -- Create master frame that will contain both displays
 local masterFrame = CreateFrame("Frame", "GearUpgradeMasterFrame", CharacterFrame, "BackdropTemplate")
-masterFrame:SetPoint("BOTTOMLEFT", CharacterFrame, "BOTTOMRIGHT", 0, 0)
+masterFrame:SetPoint("TOPRIGHT", CharacterFrame, "BOTTOMRIGHT", 0, 0)
 masterFrame:SetSize(230, 100) -- Adjusted size to be more compact
 
 -- Function to update master frame size

@@ -34,7 +34,7 @@ local function CreateCrestDisplay(parent)
     display.shortName:SetFont(display.shortName:GetFont(), 12, "OUTLINE")
     display.shortName:SetPoint("LEFT", display.frame, "LEFT", 8, 0)
     display.shortName:SetJustifyH("LEFT")
-    display.shortName:SetWidth(15) -- Fixed width for consistent icon alignment
+    display.shortName:SetWidth(20) -- Fixed width for consistent icon alignment
 
     -- Set up icon with precise positioning
     display.icon:SetSize(16, 16)
@@ -207,6 +207,32 @@ local function UpdateCrestDisplay(display, info, crestData)
                 GameTooltip:AddLine("Sources:", 0.9, 0.7, 0)
                 for _, source in ipairs(baseData.sources) do
                     GameTooltip:AddLine("• " .. source, 0.8, 0.8, 0.8)
+                end
+
+                -- Add raid rewards section
+                GameTooltip:AddLine(" ")
+                GameTooltip:AddLine("Raid Rewards:", 0.9, 0.7, 0)
+
+                -- Find which raid difficulty awards this crest type
+                for raidName, raidData in pairs(addon.RAID_REWARDS) do
+                    for difficulty, rewardType in pairs(raidData.difficulties) do
+                        if rewardType == crestBaseData.crestType then
+                            GameTooltip:AddLine(string.format("%s (%s):", raidData.name, difficulty), 0.9, 0.9, 0.9)
+                            -- Calculate total potential crests
+                            local totalCrests = 0
+                            for _, boss in ipairs(raidData.bosses) do
+                                GameTooltip:AddLine(string.format("• %s: |cFF00FF00%d|r crests", boss.name, boss.reward),
+                                    0.8, 0.8, 0.8)
+                                if boss.name == "First Six Bosses" then
+                                    totalCrests = totalCrests + (boss.reward * 6)
+                                else
+                                    totalCrests = totalCrests + (boss.reward * 2)
+                                end
+                            end
+                            GameTooltip:AddLine(string.format("Total potential crests: |cFF00FF00%d|r", totalCrests), 0.8,
+                                0.8, 0.8)
+                        end
+                    end
                 end
 
                 -- Add dungeon rewards if this crest type has mythic requirements

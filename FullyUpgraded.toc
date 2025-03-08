@@ -2,7 +2,7 @@
 ## Title: Fully Upgraded
 ## Notes: Displays the number of upgrades available for each gear piece in the character frame
 ## Author: Zyncx (Frostmourne)
-## Version: 1.6.1
+## Version: 1.6.2
 ## SavedVariables: FullyUpgradedDB
 ## IconTexture: Interface\AddOns\FullyUpgraded\Media\icon.blp
 

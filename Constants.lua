@@ -56,7 +56,7 @@ addon.CREST_BASE = {
         usage = "Used to upgrade Adventurer and Veteran gear in War Within Season 2 up to item level 623-632",
         sources = {
             "Repeatable Outdoor Events",
-            "Raid Finder Liberation of Undermine",
+            "Raid Finder Liberation of Undermine (10 crests per boss, 15 from last two)",
             "Heroic Season Dungeons",
             "Delves (Tiers 1 to 5)"
         },
@@ -71,7 +71,7 @@ addon.CREST_BASE = {
         usage = "Used to upgrade Veteran and Champion gear in War Within Season 2 up to item level 636-645",
         sources = {
             "Weekly Random Events",
-            "Normal Liberation of Undermine",
+            "Normal Liberation of Undermine (10 crests per boss, 15 from last two)",
             "Mythic 0 dungeons",
             "Delves (Tiers 6 and 7)",
             "Delver's Bounty (Tiers 4 and 5)"
@@ -86,7 +86,7 @@ addon.CREST_BASE = {
         mythicLevel = 2,
         usage = "Used to upgrade Champion and Hero gear in War Within Season 2 up to item level 649-658",
         sources = {
-            "Heroic Liberation of Undermine",
+            "Heroic Liberation of Undermine (10 crests per boss, 15 from last two)",
             "Mythic Keystone Dungeons from +2 to +6",
             "Delves (Tiers 8 to 11)",
             "Delver's Bounty (Tiers 6 and 7)"
@@ -101,7 +101,7 @@ addon.CREST_BASE = {
         mythicLevel = 7,
         usage = "Used to upgrade Hero and Myth gear in War Within Season 2 up to item levels 662 and above",
         sources = {
-            "Mythic Liberation of Undermine",
+            "Mythic Liberation of Undermine (10 crests per boss, 15 from last two)",
             "Mythic Keystone Dungeons from +7 and up",
             "Delve's Gilded Stash (Tier 11)",
             "Delver's Bounty (Tier 8 and up)"
@@ -284,3 +284,20 @@ addon.UPGRADE_TRACKS = (function()
 
     return tracks
 end)()
+
+-- Raid boss rewards information
+addon.RAID_REWARDS = {
+    LIBERATION_OF_UNDERMINE = {
+        name = "Liberation of Undermine",
+        difficulties = {
+            LFR = "WEATHERED",
+            NORMAL = "CARVED",
+            HEROIC = "RUNED",
+            MYTHIC = "GILDED"
+        },
+        bosses = {
+            { name = "First Six Bosses", reward = 10 },
+            { name = "Last Two Bosses",  reward = 15 }
+        }
+    }
+}
