@@ -176,13 +176,14 @@ local function UpdateDisplay()
 
         -- Update the display
         if addon.UpdateAllUpgradeTexts then
-            addon.UpdateAllUpgradeTexts()
+            C_Timer.After(0, function()
+                addon.UpdateAllUpgradeTexts()
+            end)
         end
 
         -- Make sure the currency frame is visible
         if masterFrame then
             masterFrame:Show()
-            UpdateFrameSizeToText()
         end
     end
 end
@@ -360,7 +361,7 @@ local function FormatTotalCrestText(sortedCrests)
     for _, crestData in ipairs(sortedCrests) do
         local crestType = crestData.crestType
         local data = crestData.data
-        if data.needed > 0 then
+        if data.current > 0 or data.needed > 0 then -- Show if we have any or need any
             local remaining = math.max(0, data.needed - data.current)
             local potentialExtra = data.upgraded * CRESTS_TO_UPGRADE
 
@@ -369,48 +370,37 @@ local function FormatTotalCrestText(sortedCrests)
             local colorCode = baseData and baseData.color and string.format("|cFF%s", baseData.color) or "|cFFFFFFFF"
 
             if data.mythicLevel and data.mythicLevel > 0 then
-                -- Find lowest and highest M+ levels for this crest type
-                local lowestLevel = data.mythicLevel
-                local highestLevel = data.mythicLevel
-                local lowestReward = 0
-                local highestReward = 0
+                -- Calculate actual remaining after upgrades
+                local actualRemaining = math.max(0, remaining - potentialExtra)
+                local minLevel = data.mythicLevel
+                local maxLevel = data.mythicLevel
+                local minRuns = math.huge
+                local maxRuns = 0
 
                 -- Get all available M+ levels for this crest type
                 if addon.CREST_REWARDS[crestType] then
+                    -- Calculate runs needed at each level
                     for level, rewards in pairs(addon.CREST_REWARDS[crestType]) do
                         if level >= data.mythicLevel then
-                            if level < lowestLevel then
-                                lowestLevel = level
-                                lowestReward = rewards.timed
+                            local runsNeeded = math.ceil(actualRemaining / rewards.timed)
+                            if runsNeeded > 0 then
+                                maxLevel = math.max(maxLevel, level)
+                                if runsNeeded < minRuns then
+                                    minRuns = runsNeeded
+                                end
+                                if level == data.mythicLevel then
+                                    maxRuns = runsNeeded
+                                end
                             end
-                            if level > highestLevel then
-                                highestLevel = level
-                                highestReward = rewards.timed
-                            end
-                            if lowestReward == 0 then lowestReward = rewards.timed end
-                            if highestReward == 0 then highestReward = rewards.timed end
                         end
                     end
                 end
 
-                -- Calculate runs needed for both levels
-                local adjustedRemaining = math.max(0, remaining - potentialExtra)
-                local maxRuns = 0
-                local minRuns = 0
-
-                if adjustedRemaining > 0 then
-                    maxRuns = math.ceil(adjustedRemaining / lowestReward)
-                    minRuns = math.ceil(adjustedRemaining / highestReward)
-                end
-
                 local runsText = ""
-
-                if adjustedRemaining <= 0 then
+                if actualRemaining <= 0 then
                     runsText = "No runs needed"
-                elseif lowestLevel == highestLevel then
-                    runsText = string.format("M%d: %d runs", lowestLevel, maxRuns)
                 else
-                    runsText = string.format("M%d-%d: %d-%d runs", lowestLevel, highestLevel, maxRuns, minRuns)
+                    runsText = string.format("M%d-%d: %d-%d runs", minLevel, maxLevel, maxRuns, minRuns)
                 end
 
                 totalText = totalText .. string.format("\n%s%s|r: %d/%d (%s)",
@@ -514,7 +504,12 @@ local function ForceCurrencyUpdate()
         addon.ShowCrestCurrency()
     end
 
-    UpdateFrameSizeToText()
+    -- Force a display update after currency update
+    C_Timer.After(0, function()
+        if addon.UpdateAllUpgradeTexts then
+            addon.UpdateAllUpgradeTexts()
+        end
+    end)
 end
 
 -- Add slash command handler

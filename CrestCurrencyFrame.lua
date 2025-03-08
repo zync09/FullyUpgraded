@@ -104,15 +104,63 @@ local function UpdateCrestDisplay(display, info, crestData)
 
     -- Set up tooltip
     display.frame:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
         GameTooltip:AddLine(info.name)
         GameTooltip:AddLine("Current: " .. info.quantity, 1, 1, 1)
         if crestData.needed and crestData.needed > 0 then
             GameTooltip:AddLine("Needed: " .. crestData.needed, 1, 0.82, 0)
         end
-        if crestData.upgraded and crestData.upgraded > 0 then
-            GameTooltip:AddLine("From upgrades: " .. crestData.upgraded, 0, 1, 0)
+
+
+        -- Add sources from CREST_BASE
+        for crestType, baseData in pairs(addon.CREST_BASE) do
+            if baseData.shortCode == crestData.reallyshortname then
+                GameTooltip:AddLine(" ")
+                GameTooltip:AddLine("Sources:", 0.9, 0.7, 0)
+                for _, source in ipairs(baseData.sources) do
+                    GameTooltip:AddLine("• " .. source, 0.8, 0.8, 0.8)
+                end
+
+                -- Add dungeon rewards if this crest type has mythic requirements
+                if baseData.mythicLevel and baseData.mythicLevel > 0 then
+                    GameTooltip:AddLine(" ")
+                    GameTooltip:AddLine("Dungeon Rewards:", 0.9, 0.7, 0)
+
+                    -- Get rewards for this crest type
+                    local rewards = addon.CREST_REWARDS[crestType]
+                    if rewards then
+                        -- Calculate total needed runs
+                        local remaining = crestData.needed and
+                            math.max(0, crestData.needed - crestData.current - (crestData.upgraded or 0)) or 0
+
+                        for level = baseData.mythicLevel, 20 do
+                            if rewards[level] then
+                                local rewardAmount = rewards[level].timed
+                                local expiredAmount = math.max(0, rewardAmount - addon.EXPIRED_KEYSTONE_DEDUCTION)
+
+                                -- Calculate runs needed for both normal and expired rewards
+                                local runsNeeded = remaining > 0 and math.ceil(remaining / rewardAmount) or 0
+                                local expiredRunsNeeded = remaining > 0 and math.ceil(remaining / expiredAmount) or 0
+
+                                -- Format the line with colored M+ level, green reward, and runs info
+                                local levelText = string.format("|cFF%sM%d|r", baseData.color, level)
+                                local rewardText = string.format("|cFF00FF00%d|r", rewardAmount)
+                                local runsText = string.format("(%d runs)", runsNeeded)
+                                local expiredText = string.format("| Expired: |cFFFF0000%d|r (%d runs)", expiredAmount,
+                                    expiredRunsNeeded)
+
+                                -- Always show both normal and expired rewards
+                                GameTooltip:AddLine(
+                                    string.format("%s: %s %s %s", levelText, rewardText, runsText, expiredText),
+                                    1, 1, 1, true)
+                            end
+                        end
+                    end
+                end
+                break
+            end
         end
+
         GameTooltip:Show()
     end)
 

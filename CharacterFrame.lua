@@ -298,14 +298,19 @@ local function UpdateAllUpgradeTexts()
     local totalText = addon.FormatTotalCrestText(sortedCrests)
 
     if totalText ~= "" then
-        addon.totalCrestText:SetText("Fully Upgraded:" .. totalText)
-        addon.totalCrestText:Show()
+        -- Ensure we're using the same text frame from FullyUpgraded.lua
+        if addon.totalCrestText then
+            addon.totalCrestText:SetText("Fully Upgraded:" .. totalText)
+            addon.totalCrestText:Show()
+            addon.UpdateFrameSizeToText()
+        end
     else
-        addon.totalCrestText:SetText("")
-        addon.totalCrestText:Hide()
+        if addon.totalCrestText then
+            addon.totalCrestText:SetText("")
+            addon.totalCrestText:Hide()
+            addon.UpdateFrameSizeToText()
+        end
     end
-
-    addon.UpdateFrameSizeToText()
 end
 
 -- Update text positions
