@@ -258,17 +258,15 @@ local function ProcessEquipmentSlot(slot, button)
 
                         -- Only show if text visibility is enabled
                         if FullyUpgradedDB and FullyUpgradedDB.textVisible then
-                            shouldShow = true
-                            -- Rest of the processing logic...
-                            for _, track in pairs(UPGRADE_TRACKS) do
-                                if track.name:upper() == trackUpper then
-                                    if currentNum < maxNum then
-                                        ProcessUpgradeableItem(button, track, trackName, currentNum, maxNum,
-                                            maxNum - currentNum)
-                                    else
-                                        ProcessFullyUpgradedItem(button, trackName, currentNum, maxNum)
-                                    end
-                                    break
+                            -- Find the matching track
+                            if UPGRADE_TRACKS[trackUpper] then
+                                shouldShow = true
+                                local track = UPGRADE_TRACKS[trackUpper]
+                                if currentNum < maxNum then
+                                    ProcessUpgradeableItem(button, track, trackName, currentNum, maxNum,
+                                        maxNum - currentNum)
+                                else
+                                    ProcessFullyUpgradedItem(button, trackName, currentNum, maxNum)
                                 end
                             end
                         end
