@@ -23,22 +23,44 @@ local ceil = math.ceil
 local min = math.min
 local max = math.max
 
--- Font settings
-local fontFile = GameFontNormal:GetFont()
-local fontSize = 12
-local fontFlags = "OUTLINE, THICKOUTLINE"
 
 -- Optimization: Create a single tooltip frame and reuse it
 local tooltipFrame = CreateFrame("GameTooltip", "GearUpgradeTooltip", UIParent, "GameTooltipTemplate")
 
--- Cache for tooltip data to reduce memory allocations
-local tooltipCache = {}
-local itemCache = {}
+-- Cache variables
+local currencyCache = {}
+local upgradeCalculationsCache = {
+    lastUpdate = 0,
+    data = {}
+}
+local CACHE_TIMEOUT = 1                                      -- Cache timeout in seconds
+local MAX_CACHE_ENTRIES = 50                                 -- Maximum number of entries in caches
+local tooltipCache = setmetatable({}, { __mode = "v" })      -- Weak values for tooltip cache
+local itemCache = setmetatable({}, { __mode = "v" })         -- Weak values for item cache
+local tooltipDataCache = setmetatable({}, { __mode = "kv" }) -- Weak references for tooltip data
+
+-- Reusable table for temporary calculations
+local tempTable = {}
 
 -- Optimization: Create object pools for frames and textures
 local framePool = CreateFramePool("Frame")
 local texturePool = CreateTexturePool()
 local fontStringPool = CreateFontStringPool()
+
+-- Object pool for reusable tables
+local tablePool = {
+    pool = setmetatable({}, { __mode = "k" }),
+    acquire = function(self)
+        local tbl = next(self.pool) or {}
+        self.pool[tbl] = nil
+        return tbl
+    end,
+    release = function(self, tbl)
+        if type(tbl) ~= "table" then return end
+        wipe(tbl)
+        self.pool[tbl] = true
+    end
+}
 
 -- Create master frame that will contain both displays
 local masterFrame = CreateFrame("Frame", "GearUpgradeMasterFrame", CharacterFrame, "BackdropTemplate")
@@ -99,9 +121,96 @@ C_Timer.After(0.1, UpdateMasterFrameSize) -- Initial size update after everythin
 -- Add after other local variables
 local debugMode = false -- Set to true to enable debug messages
 
+-- Initialize saved variables
+local function InitializeSavedVariables()
+    if not FullyUpgradedDB then
+        FullyUpgradedDB = {
+            textPosition = "TR", -- Default position
+            textVisible = true   -- Default visibility
+        }
+    end
+    -- Ensure the visibility setting exists
+    if FullyUpgradedDB.textVisible == nil then
+        FullyUpgradedDB.textVisible = true
+    end
+    currentTextPos = FullyUpgradedDB.textPosition or "TR"
+end
+
+-- Function to update text positions with saving
+local function UpdateTextPositions(newPosition)
+    if TEXT_POSITIONS[newPosition] then
+        currentTextPos = newPosition
+        FullyUpgradedDB.textPosition = newPosition
+
+        -- Update all existing texts
+        for slot, button in pairs(addon.upgradeTextPool) do
+            if button then
+                local posData = TEXT_POSITIONS[currentTextPos]
+                button:ClearAllPoints()
+                button:SetPoint(posData.point, button.slotFrame, posData.point, posData.x, posData.y)
+            end
+        end
+    end
+end
+
+-- Export UpdateTextPositions to addon namespace
+addon.UpdateTextPositions = UpdateTextPositions
+
 -- Function to check if character tab is selected
 local function IsCharacterTabSelected()
     return PaperDollFrame:IsVisible()
+end
+
+-- Function to check if currency has changed
+local function HasCurrencyChanged()
+    local hasChanged = false
+    for crestType, crestData in pairs(CURRENCY.CRESTS) do
+        if crestData.currencyID then
+            local info = C_CurrencyInfo.GetCurrencyInfo(crestData.currencyID)
+            if info then
+                local cachedValue = currencyCache[crestType] and currencyCache[crestType].quantity
+                if not cachedValue or cachedValue ~= info.quantity then
+                    hasChanged = true
+                    break
+                end
+            end
+        end
+    end
+    return hasChanged
+end
+
+-- Check currency for all crests with caching
+local function CheckCurrencyForAllCrests()
+    local hasChanges = false
+
+    for crestType, crestData in pairs(CURRENCY.CRESTS) do
+        if crestData.currencyID then
+            local info = C_CurrencyInfo.GetCurrencyInfo(crestData.currencyID)
+            if info then
+                -- Check if we need to update the cache
+                if not currencyCache[crestType] or
+                    currencyCache[crestType].quantity ~= info.quantity or
+                    currencyCache[crestType].name ~= info.name then
+                    -- Update the cache
+                    currencyCache[crestType] = {
+                        quantity = info.quantity,
+                        name = info.name
+                    }
+
+                    -- Update the actual data
+                    local oldValue = CURRENCY.CRESTS[crestType].current
+                    CURRENCY.CRESTS[crestType].current = info.quantity
+                    CURRENCY.CRESTS[crestType].name = info.name
+
+                    if oldValue ~= info.quantity then
+                        hasChanges = true
+                    end
+                end
+            end
+        end
+    end
+
+    return hasChanges
 end
 
 -- Function to update frame visibility
@@ -120,13 +229,62 @@ CharacterFrame:HookScript("OnHide", function() masterFrame:Hide() end)
 -- Hook tab changes
 hooksecurefunc("ToggleCharacter", UpdateFrameVisibility)
 
+-- Function to clean old cache entries
+local function CleanOldCacheEntries()
+    local currentTime = GetTime()
+
+    -- Clean tooltip cache if it gets too large
+    local count = 0
+    for k in pairs(tooltipCache) do
+        count = count + 1
+        if count > MAX_CACHE_ENTRIES then
+            tooltipCache[k] = nil
+        end
+    end
+
+    -- Clean item cache if it gets too large
+    count = 0
+    for k in pairs(itemCache) do
+        count = count + 1
+        if count > MAX_CACHE_ENTRIES then
+            itemCache[k] = nil
+        end
+    end
+
+    -- Clean currency cache if it gets too large
+    count = 0
+    for k in pairs(currencyCache) do
+        count = count + 1
+        if count > MAX_CACHE_ENTRIES then
+            currencyCache[k] = nil
+        end
+    end
+end
+
+-- Modify CalculateUpgradedCrests to use table pool
 local function CalculateUpgradedCrests()
+    local currentTime = GetTime()
+
+    -- Check if cache is still valid
+    if upgradeCalculationsCache.lastUpdate + CACHE_TIMEOUT > currentTime then
+        -- Apply cached values
+        for crestType, data in pairs(upgradeCalculationsCache.data) do
+            if CURRENCY.CRESTS[crestType] then
+                CURRENCY.CRESTS[crestType].upgraded = data.upgraded
+            end
+        end
+        return false -- No changes made
+    end
+
     -- Reset upgraded counts
     for _, crestType in ipairs(CREST_ORDER) do
         if CURRENCY.CRESTS[crestType] then
             CURRENCY.CRESTS[crestType].upgraded = 0
         end
     end
+
+    -- Get a temporary table from the pool
+    local tempData = tablePool:acquire()
 
     -- Calculate upgrades starting from second crest type
     for i = 2, #CREST_ORDER do
@@ -140,61 +298,56 @@ local function CalculateUpgradedCrests()
             -- Calculate how many crests can be upgraded from the previous tier
             local upgradedCount = math.floor(previousCrest.current / CRESTS_CONVERSION_UP)
             currentCrest.upgraded = upgradedCount
-        end
-    end
-end
 
--- Check currency for all crests
-local function CheckCurrencyForAllCrests()
-    for crestType, crestData in pairs(CURRENCY.CRESTS) do
-        if crestData.currencyID then
-            local info = C_CurrencyInfo.GetCurrencyInfo(crestData.currencyID)
-            if info then
-                local oldValue = CURRENCY.CRESTS[crestType].current
-                CURRENCY.CRESTS[crestType].current = info.quantity
-                CURRENCY.CRESTS[crestType].name = info.name
-            end
-        end
-    end
-end
-
--- Get the current season's item level range
-local function GetCurrentSeasonItemLevelRange()
-    return SEASONS[2].MIN_ILVL, SEASONS[2].MAX_ILVL
-end
-
--- Optimization: Clear caches periodically
-local function ClearCaches()
-    local currentTime = GetTime()
-
-    -- Clear old tooltip cache entries
-    for key, data in pairs(tooltipCache) do
-        if (currentTime - data.time) > 5 then
-            tooltipCache[key] = nil
+            -- Store in temp table
+            tempData[currentType] = upgradedCount
         end
     end
 
-    -- Clear item cache if it gets too large
-    if next(itemCache) and #itemCache > 100 then
-        wipe(itemCache)
+    -- Update cache all at once
+    wipe(upgradeCalculationsCache.data)
+    for crestType, upgradedCount in pairs(tempData) do
+        upgradeCalculationsCache.data[crestType] = {
+            upgraded = upgradedCount
+        }
     end
+
+    -- Release the temporary table back to the pool
+    tablePool:release(tempData)
+
+    upgradeCalculationsCache.lastUpdate = currentTime
+    return true -- Changes made
 end
 
--- Simplified update function
+-- Modify UpdateDisplay to include cache cleanup
 local function UpdateDisplay()
+    -- Skip intensive calculations if player is in combat
+    if UnitAffectingCombat("player") then
+        return
+    end
+
     if IsCharacterTabSelected() then
+        -- Clean caches periodically
+        CleanOldCacheEntries()
+
         -- Only initialize texts if they don't exist
         if not next(addon.upgradeTextPool) then
             addon.InitializeUpgradeTexts()
         end
 
-        -- Explicitly recalculate and update currency information
-        CheckCurrencyForAllCrests()
-        CalculateUpgradedCrests()
+        local currencyChanged = CheckCurrencyForAllCrests()
+        local calculationsChanged = false
 
-        -- Update the display
-        if addon.UpdateAllUpgradeTexts then
-            addon.UpdateAllUpgradeTexts()
+        -- Only recalculate if currency changed
+        if currencyChanged then
+            calculationsChanged = CalculateUpgradedCrests()
+        end
+
+        -- Update the display only if something changed
+        if currencyChanged or calculationsChanged then
+            if addon.UpdateAllUpgradeTexts then
+                addon.UpdateAllUpgradeTexts()
+            end
         end
 
         -- Make sure the currency frame is visible
@@ -406,6 +559,9 @@ end
 -- Modified event handler with better initialization
 f:SetScript("OnEvent", function(_, event)
     if event == "PLAYER_ENTERING_WORLD" then
+        -- Initialize saved variables first
+        InitializeSavedVariables()
+
         -- Initialize once
         if not addon.initialized then
             addon.InitializeUpgradeTexts()
@@ -421,14 +577,20 @@ f:SetScript("OnEvent", function(_, event)
         end
         UpdateFrameVisibility()
     elseif event == "CURRENCY_DISPLAY_UPDATE" or
-        event == "BAG_UPDATE" or
-        event == "PLAYER_EQUIPMENT_CHANGED" then
+        event == "BAG_UPDATE" then
         ThrottledUpdate()
+    elseif event == "PLAYER_EQUIPMENT_CHANGED" then
+        CalculateUpgradedCrests()
     end
 end)
 
 -- Function to force a currency update
 local function ForceCurrencyUpdate()
+    -- Clear caches to force update
+    wipe(currencyCache)
+    wipe(upgradeCalculationsCache.data)
+    upgradeCalculationsCache.lastUpdate = 0
+
     CheckCurrencyForAllCrests()
     CalculateUpgradedCrests()
     if addon.ShowCrestCurrency then
@@ -440,6 +602,25 @@ local function ForceCurrencyUpdate()
         addon.UpdateAllUpgradeTexts()
     end
 end
+
+-- Function to set text visibility
+local function SetTextVisibility(visible)
+    FullyUpgradedDB.textVisible = visible
+
+    -- Update all existing texts
+    for slot, button in pairs(addon.upgradeTextPool) do
+        if button then
+            if visible then
+                button:Show()
+            else
+                button:Hide()
+            end
+        end
+    end
+end
+
+-- Export SetTextVisibility to addon namespace
+addon.SetTextVisibility = SetTextVisibility
 
 -- Add slash command handler
 SLASH_FULLYUPGRADED1 = "/fullyupgraded"
@@ -457,6 +638,18 @@ SlashCmdList["FULLYUPGRADED"] = function(msg)
             print(
                 "|cFFFFFF00FullyUpgraded:|r Valid positions: TR (Top Right), TL (Top Left), BR (Bottom Right), BL (Bottom Left), C (Center)")
         end
+    elseif cmd == "text" or cmd == "show" or cmd == "hide" then
+        if cmd == "hide" then
+            SetTextVisibility(false)
+            print("|cFFFFFF00FullyUpgraded:|r Text hidden")
+        elseif cmd == "show" then
+            SetTextVisibility(true)
+            print("|cFFFFFF00FullyUpgraded:|r Text shown")
+        else
+            -- Toggle current state
+            SetTextVisibility(not FullyUpgradedDB.textVisible)
+            print("|cFFFFFF00FullyUpgraded:|r Text " .. (FullyUpgradedDB.textVisible and "shown" or "hidden"))
+        end
     elseif cmd == "refresh" or cmd == "r" then
         print("|cFFFFFF00FullyUpgraded:|r Refreshing upgrade information...")
         UpdateDisplay()
@@ -472,6 +665,9 @@ SlashCmdList["FULLYUPGRADED"] = function(msg)
     else
         print("|cFFFFFF00FullyUpgraded commands:|r")
         print("  /fu textpos <position> - Set text position (TR/TL/BR/BL/C)")
+        print("  /fu show - Show upgrade text")
+        print("  /fu hide - Hide upgrade text")
+        print("  /fu text - Toggle upgrade text visibility")
         print("  /fu refresh - Manually refresh upgrade information")
         print("  /fu currency - Manually refresh currency information")
         print("  /fu debug - Toggle debug mode")
@@ -517,20 +713,28 @@ if not itemUpgradeFrameHooked and IsAddonLoaded("Blizzard_ItemUpgradeUI") then
     itemUpgradeFrameHooked = true
 end
 
--- Optimization: Clean up resources when addon is disabled
+-- Modify CleanupAddon to be more thorough
 local function CleanupAddon()
     wipe(tooltipCache)
     wipe(itemCache)
+    wipe(currencyCache)
+    wipe(upgradeCalculationsCache.data)
+    wipe(tooltipDataCache)
     framePool:ReleaseAll()
     texturePool:ReleaseAll()
     fontStringPool:ReleaseAll()
+
+    -- Force a garbage collection after cleanup
+    collectgarbage("collect")
 end
 
 -- Register cleanup function
 f:SetScript("OnDisable", CleanupAddon)
 
--- Periodically clean caches
-C_Timer.NewTicker(5, ClearCaches)
+-- Get the current season's item level range
+local function GetCurrentSeasonItemLevelRange()
+    return SEASONS[2].MIN_ILVL, SEASONS[2].MAX_ILVL
+end
 
 -- Export functions to addon namespace
 addon.Debug = Debug

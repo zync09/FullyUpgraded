@@ -77,6 +77,13 @@ local function CreateUpgradeText(slot)
     text:ClearAllPoints()
     text:SetPoint("CENTER", button, "CENTER", 0, 0)
 
+    -- Set initial visibility based on saved setting
+    if FullyUpgradedDB and FullyUpgradedDB.textVisible ~= nil then
+        if not FullyUpgradedDB.textVisible then
+            button:Hide()
+        end
+    end
+
     -- Set up tooltip handling
     button:SetScript("OnEnter", function(self)
         ShowTooltip(self, function(button)
@@ -248,27 +255,31 @@ local function ProcessEquipmentSlot(slot, button)
                         local trackUpper = trackName:upper()
                         local currentNum = tonumber(current)
                         local maxNum = tonumber(max)
-                        local levelsToUpgrade = maxNum - currentNum
-                        local track = UPGRADE_TRACKS[trackUpper]
 
-                        if track then
-                            if levelsToUpgrade > 0 then
-                                ProcessUpgradeableItem(button, track, trackName, currentNum, maxNum, levelsToUpgrade)
-                            else
-                                ProcessFullyUpgradedItem(button, trackName, currentNum, maxNum)
-                            end
+                        -- Only show if text visibility is enabled
+                        if FullyUpgradedDB and FullyUpgradedDB.textVisible then
                             shouldShow = true
-                            break
+                            -- Rest of the processing logic...
+                            for _, track in pairs(UPGRADE_TRACKS) do
+                                if track.name:upper() == trackUpper then
+                                    if currentNum < maxNum then
+                                        ProcessUpgradeableItem(button, track, trackName, currentNum, maxNum,
+                                            maxNum - currentNum)
+                                    else
+                                        ProcessFullyUpgradedItem(button, trackName, currentNum, maxNum)
+                                    end
+                                    break
+                                end
+                            end
                         end
+                        break
                     end
                 end
             end
         end
     end
 
-    if shouldShow then
-        button:Show()
-    else
+    if not shouldShow or (FullyUpgradedDB and not FullyUpgradedDB.textVisible) then
         button:Hide()
     end
 end
