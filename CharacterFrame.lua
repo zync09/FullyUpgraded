@@ -138,6 +138,10 @@ end
 
 -- Process an upgradeable item
 local function ProcessUpgradeableItem(button, track, trackName, currentNum, maxNum, levelsToUpgrade)
+    if not button or not track or not trackName then
+        return
+    end
+
     local trackUpper = trackName:upper()
     local trackLetter = trackUpper:sub(1, 1)
 
@@ -159,33 +163,35 @@ local function ProcessUpgradeableItem(button, track, trackName, currentNum, maxN
     if track.splitUpgrade then
         local firstTier = track.splitUpgrade.firstTier
         local secondTier = track.splitUpgrade.secondTier
-        local remainingFirstTier = math.min(levelsToUpgrade, math.max(0, firstTier.levels - currentNum))
-        local remainingSecondTier = math.max(0, levelsToUpgrade - remainingFirstTier)
 
-        if remainingFirstTier > 0 and firstTier.crest then
-            tooltipData[button.slot].requirements.firstTier = {
-                crestType = firstTier.shortname:upper(),
-                count = remainingFirstTier * addon.CRESTS_TO_UPGRADE,
-                mythicLevel = addon.CURRENCY.CRESTS[firstTier.shortname:upper()] and
-                    addon.CURRENCY.CRESTS[firstTier.shortname:upper()].mythicLevel or 0
-            }
-        end
+        -- Validate tier data before processing
+        if firstTier and firstTier.levels and firstTier.shortname then
+            local remainingFirstTier = math.min(levelsToUpgrade, math.max(0, firstTier.levels - currentNum))
+            local remainingSecondTier = secondTier and math.max(0, levelsToUpgrade - remainingFirstTier) or 0
 
-        if remainingSecondTier > 0 and secondTier.crest then
-            tooltipData[button.slot].requirements.secondTier = {
-                crestType = secondTier.shortname:upper(),
-                count = remainingSecondTier * addon.CRESTS_TO_UPGRADE,
-                mythicLevel = addon.CURRENCY.CRESTS[secondTier.shortname:upper()] and
-                    addon.CURRENCY.CRESTS[secondTier.shortname:upper()].mythicLevel or 0
-            }
+            if remainingFirstTier > 0 and firstTier.crest then
+                local firstTierShortname = firstTier.shortname:upper()
+                local firstTierCurrency = addon.CURRENCY.CRESTS[firstTierShortname]
+
+                tooltipData[button.slot].requirements.firstTier = {
+                    crestType = firstTierShortname,
+                    count = remainingFirstTier * addon.CRESTS_TO_UPGRADE,
+                    mythicLevel = firstTierCurrency and firstTierCurrency.mythicLevel or 0
+                }
+            end
+
+            -- Only process second tier if it exists and has valid data
+            if remainingSecondTier > 0 and secondTier and secondTier.crest and secondTier.shortname then
+                local secondTierShortname = secondTier.shortname:upper()
+                local secondTierCurrency = addon.CURRENCY.CRESTS[secondTierShortname]
+
+                tooltipData[button.slot].requirements.secondTier = {
+                    crestType = secondTierShortname,
+                    count = remainingSecondTier * addon.CRESTS_TO_UPGRADE,
+                    mythicLevel = secondTierCurrency and secondTierCurrency.mythicLevel or 0
+                }
+            end
         end
-    else
-        tooltipData[button.slot].requirements.standard = {
-            crestType = track.crestType,
-            count = levelsToUpgrade * addon.CRESTS_TO_UPGRADE,
-            mythicLevel = addon.CURRENCY.CRESTS[track.crestType] and
-                addon.CURRENCY.CRESTS[track.crestType].mythicLevel or 0
-        }
     end
 
     addon.ProcessUpgradeTrack(track, levelsToUpgrade, currentNum)
@@ -250,27 +256,29 @@ local function ProcessEquipmentSlot(slot, button)
             -- Process upgrade levels for non-Season 1 items
             if not shouldShow then
                 for _, line in ipairs(tooltipData.lines) do
-                    local trackName, current, max = line.leftText:match("Upgrade Level: (%w+) (%d+)/(%d+)")
-                    if trackName then
-                        local trackUpper = trackName:upper()
-                        local currentNum = tonumber(current)
-                        local maxNum = tonumber(max)
+                    if line and line.leftText then
+                        local trackName, current, max = line.leftText:match("Upgrade Level: (%w+) (%d+)/(%d+)")
+                        if trackName then
+                            local trackUpper = trackName:upper()
+                            local currentNum = tonumber(current)
+                            local maxNum = tonumber(max)
 
-                        -- Only show if text visibility is enabled
-                        if FullyUpgradedDB and FullyUpgradedDB.textVisible then
-                            -- Find the matching track
-                            if UPGRADE_TRACKS[trackUpper] then
-                                shouldShow = true
+                            -- Only show if text visibility is enabled and we have valid numbers
+                            if FullyUpgradedDB and FullyUpgradedDB.textVisible and currentNum and maxNum then
+                                -- Find the matching track
                                 local track = UPGRADE_TRACKS[trackUpper]
-                                if currentNum < maxNum then
-                                    ProcessUpgradeableItem(button, track, trackName, currentNum, maxNum,
-                                        maxNum - currentNum)
-                                else
-                                    ProcessFullyUpgradedItem(button, trackName, currentNum, maxNum)
+                                if track then
+                                    shouldShow = true
+                                    if currentNum < maxNum then
+                                        ProcessUpgradeableItem(button, track, trackName, currentNum, maxNum,
+                                            maxNum - currentNum)
+                                    else
+                                        ProcessFullyUpgradedItem(button, trackName, currentNum, maxNum)
+                                    end
                                 end
                             end
+                            break
                         end
-                        break
                     end
                 end
             end
