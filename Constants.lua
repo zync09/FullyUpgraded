@@ -13,6 +13,10 @@ addon.SEASONS = {
     [2] = {
         MIN_ILVL = 597,
         MAX_ILVL = 678
+    },
+    [3] = {
+        MIN_ILVL = 642,
+        MAX_ILVL = 723
     }
 }
 
@@ -51,12 +55,12 @@ addon.CREST_BASE = {
         baseName = "Weathered",
         shortCode = "W",
         color = "ffffff",
-        currencyID = 3107,
+        currencyID = 3284,
         mythicLevel = 0,
-        usage = "Used to upgrade Adventurer and Veteran gear in War Within Season 2 up to item level 623-632",
+        usage = "Used to upgrade Adventurer and Veteran gear in War Within Season 3 up to item level 678",
         sources = {
             "Repeatable Outdoor Events",
-            "Raid Finder Liberation of Undermine (10 crests per boss, 15 from last two)",
+            "Raid Finder Manaforge Omega (10 crests per boss, 15 from last two)",
             "Heroic Season Dungeons",
             "Delves (Tiers 1 to 5)"
         },
@@ -66,12 +70,12 @@ addon.CREST_BASE = {
         baseName = "Carved",
         shortCode = "C",
         color = "006bee",
-        currencyID = 3108,
+        currencyID = 3286,
         mythicLevel = 0,
-        usage = "Used to upgrade Veteran and Champion gear in War Within Season 2 up to item level 636-645",
+        usage = "Used to upgrade Veteran and Champion gear in War Within Season 3 up to item level 691",
         sources = {
             "Weekly Random Events",
-            "Normal Liberation of Undermine (10 crests per boss, 15 from last two)",
+            "Normal Manaforge Omega (10 crests per boss, 15 from last two)",
             "Mythic 0 dungeons",
             "Delves (Tiers 6 and 7)",
             "Delver's Bounty (Tiers 4 and 5)"
@@ -82,11 +86,11 @@ addon.CREST_BASE = {
         baseName = "Runed",
         shortCode = "R",
         color = "a729ff",
-        currencyID = 3109,
+        currencyID = 3288,
         mythicLevel = 2,
-        usage = "Used to upgrade Champion and Hero gear in War Within Season 2 up to item level 649-658",
+        usage = "Used to upgrade Champion and Hero gear in War Within Season 3 up to item level 704",
         sources = {
-            "Heroic Liberation of Undermine (10 crests per boss, 15 from last two)",
+            "Heroic Manaforge Omega (10 crests per boss, 15 from last two)",
             "Mythic Keystone Dungeons from +2 to +6",
             "Delves (Tiers 8 to 11)",
             "Delver's Bounty (Tiers 6 and 7)"
@@ -97,11 +101,11 @@ addon.CREST_BASE = {
         baseName = "Gilded",
         shortCode = "G",
         color = "ff8000",
-        currencyID = 3110,
+        currencyID = 3290,
         mythicLevel = 7,
-        usage = "Used to upgrade Hero and Myth gear in War Within Season 2 up to item levels 662 and above",
+        usage = "Used to upgrade Hero and Myth gear in War Within Season 3 up to item level 723",
         sources = {
-            "Mythic Liberation of Undermine (10 crests per boss, 15 from last two)",
+            "Mythic Manaforge Omega (10 crests per boss, 15 from last two)",
             "Mythic Keystone Dungeons from +7 and up",
             "Delve's Gilded Stash (Tier 11)",
             "Delver's Bounty (Tier 8 and up)"
@@ -287,8 +291,8 @@ end)()
 
 -- Raid boss rewards information
 addon.RAID_REWARDS = {
-    LIBERATION_OF_UNDERMINE = {
-        name = "Liberation of Undermine",
+    MANAFORGE_OMEGA = {
+        name = "Manaforge Omega",
         difficulties = {
             LFR = "WEATHERED",
             NORMAL = "CARVED",
