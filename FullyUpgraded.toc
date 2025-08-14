@@ -2,12 +2,11 @@
 ## Title: Fully Upgraded
 ## Notes: Displays the number of upgrades available for each gear piece in the character frame
 ## Author: Zyncx (Frostmourne)
-## Version: 1.6.5
+## Version: 2.0.0
 ## SavedVariables: FullyUpgradedDB
 ## IconTexture: Interface\AddOns\FullyUpgraded\Media\icon.blp
 
-Constants.lua
-FullyUpgraded.lua
-CharacterFrame.lua
-CrestCurrencyFrame.lua
-OptionsFrame.lua
+Core.lua
+Data.lua
+UI.lua
+Currency.lua
