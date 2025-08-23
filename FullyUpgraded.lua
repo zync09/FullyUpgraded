@@ -608,14 +608,13 @@ local function SetTextVisibility(visible)
     FullyUpgradedDB.textVisible = visible
 
     -- Update all existing texts
-    for slot, button in pairs(addon.upgradeTextPool) do
-        if button then
-            if visible then
-                button:Show()
-            else
-                button:Hide()
-            end
-        end
+    if addon.SetTextVisibility then
+        addon.SetTextVisibility(visible)
+    end
+    
+    -- Force a refresh to show/hide items properly
+    if visible and addon.UpdateAllUpgradeTexts then
+        addon.UpdateAllUpgradeTexts()
     end
 end
 
@@ -733,7 +732,7 @@ f:SetScript("OnDisable", CleanupAddon)
 
 -- Get the current season's item level range
 local function GetCurrentSeasonItemLevelRange()
-    return SEASONS[2].MIN_ILVL, SEASONS[2].MAX_ILVL
+    return SEASONS[3].MIN_ILVL, SEASONS[3].MAX_ILVL
 end
 
 -- Export functions to addon namespace

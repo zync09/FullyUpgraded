@@ -263,8 +263,8 @@ local function ProcessEquipmentSlot(slot, button)
                             local currentNum = tonumber(current)
                             local maxNum = tonumber(max)
 
-                            -- Only show if text visibility is enabled and we have valid numbers
-                            if FullyUpgradedDB and FullyUpgradedDB.textVisible and currentNum and maxNum then
+                            -- Check if we have valid numbers
+                            if currentNum and maxNum then
                                 -- Find the matching track
                                 local track = UPGRADE_TRACKS[trackUpper]
                                 if track then
@@ -295,6 +295,17 @@ local function UpdateAllUpgradeTexts()
     -- Make sure we have text elements initialized
     if not next(upgradeTextPool) then
         InitializeUpgradeTexts()
+    end
+    
+    -- Ensure saved variables are loaded
+    if not FullyUpgradedDB then
+        FullyUpgradedDB = {
+            textPosition = "TR",
+            textVisible = true
+        }
+    end
+    if FullyUpgradedDB.textVisible == nil then
+        FullyUpgradedDB.textVisible = true
     end
 
     -- Reset needed counts
