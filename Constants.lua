@@ -4,6 +4,34 @@ local addonName, addon = ...
 addon.CRESTS_TO_UPGRADE = 15
 addon.CRESTS_CONVERSION_UP = 45
 
+-- Cache settings
+addon.CACHE_TIMEOUT = 1                -- Cache timeout in seconds
+addon.MAX_CACHE_ENTRIES = 50           -- Maximum number of entries in caches
+addon.TOOLTIP_CACHE_TTL = 1            -- Tooltip cache time-to-live in seconds
+
+-- UI settings
+addon.FONT_SIZE = 12
+addon.FONT_FLAGS = "OUTLINE, THICKOUTLINE"
+addon.ICON_SIZE = 16
+addon.BUTTON_SIZE = { width = 30, height = 20 }
+addon.FRAME_PADDING = 8
+addon.MASTER_FRAME_MIN_WIDTH = 230
+addon.CURRENCY_FRAME_HEIGHT = 20
+addon.CURRENCY_FRAME_WIDTH = 140
+
+-- Timing settings
+addon.UPDATE_THROTTLE_TIME = 0.1       -- Throttle time for updates
+addon.DELAYED_SIZE_UPDATE_TIME = 0.1   -- Delay for size updates
+addon.POSITION_RECALC_TIME = 0.05      -- Position recalculation delay
+
+-- Display settings
+addon.CURRENCY_SPACING = 6             -- Spacing between currency groups
+addon.ICON_TEXT_SPACING = 2            -- Spacing between icon and text
+addon.SEPARATOR_WIDTH = 2              -- Width of separator between currencies
+
+-- Debug mode (shared across all files)
+addon.debugMode = false
+
 -- Season item level ranges
 addon.SEASONS = {
     [1] = {

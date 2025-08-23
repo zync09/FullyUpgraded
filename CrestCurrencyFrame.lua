@@ -5,10 +5,7 @@ local CURRENCY = addon.CURRENCY
 local CREST_ORDER = addon.CREST_ORDER
 local TEXT_POSITIONS = addon.TEXT_POSITIONS
 
--- Helper function
-local function IsCharacterTabSelected()
-    return PaperDollFrame:IsVisible()
-end
+-- Use shared function from addon namespace
 
 -- Create display elements for a single crest type
 local function CreateCrestDisplay(parent)
@@ -180,9 +177,9 @@ local function UpdateCrestDisplay(display, info, crestData)
                     display.runsNeeded:SetPoint("RIGHT", display.frame, "RIGHT", -5, 0)
 
                     -- Add a timer to recalculate positions
-                    C_Timer.After(0.05, function()
-                        if display.container:GetParent().UpdateFrameSize then
-                            display.container:GetParent():UpdateFrameSize()
+                    C_Timer.After(addon.POSITION_RECALC_TIME, function()
+                        if display.container:GetParent().updateFrameSize then
+                            display.container:GetParent():updateFrameSize()
                         end
                     end)
                 end
@@ -284,20 +281,20 @@ local function UpdateCrestDisplay(display, info, crestData)
 end
 
 -- Main update function for currency display
-local function UpdateCrestCurrency(parent)
+local function updateCrestCurrency(parent)
     -- Use the existing frame from parent
     local frame = parent
     frame.displays = frame.displays or {}
+    frame.displayPool = frame.displayPool or {}
 
-    -- Clear existing displays
-    if frame.displays then
-        for _, display in pairs(frame.displays) do
-            if display.frame then display.frame:Hide() end
-            if display.shortName then display.shortName:Hide() end
-            if display.icon then display.icon:Hide() end
-            if display.count then display.count:Hide() end
-            if display.runsNeeded then display.runsNeeded:Hide() end
-        end
+    -- Hide all existing displays and return them to pool
+    for _, display in pairs(frame.displays) do
+        if display.container then display.container:Hide() end
+        if display.frame then display.frame:Hide() end
+        if display.shortName then display.shortName:Hide() end
+        if display.icon then display.icon:Hide() end
+        if display.count then display.count:Hide() end
+        if display.runsNeeded then display.runsNeeded:Hide() end
     end
 
     -- Count how many displays we'll have
@@ -316,8 +313,8 @@ local function UpdateCrestCurrency(parent)
     for _, crestType in ipairs(CREST_ORDER) do
         local crestData = CURRENCY.CRESTS[crestType]
         if crestData and crestData.currencyID then
-            local info = C_CurrencyInfo.GetCurrencyInfo(crestData.currencyID)
-            if info then
+            local success, info = pcall(C_CurrencyInfo.GetCurrencyInfo, crestData.currencyID)
+            if success and info then
                 -- Create or get existing display
                 if not frame.displays[crestType] then
                     frame.displays[crestType] = CreateCrestDisplay(frame)
@@ -334,7 +331,7 @@ local function UpdateCrestCurrency(parent)
     end
 
     -- Update frame visibility
-    if IsCharacterTabSelected() then
+    if addon.isCharacterTabSelected() then
         frame:Show()
     else
         frame:Hide()
@@ -345,8 +342,8 @@ end
 local function SetupEventHandlers()
     -- Update when character frame is shown
     CharacterFrame:HookScript("OnShow", function()
-        if IsCharacterTabSelected() then
-            UpdateCrestCurrency(_G["GearUpgradeCurrencyFrame"]) -- Use the global frame
+        if addon.isCharacterTabSelected() then
+            updateCrestCurrency(_G["GearUpgradeCurrencyFrame"]) -- Use the global frame
         end
     end)
 
@@ -354,8 +351,8 @@ local function SetupEventHandlers()
     local currencyEventFrame = CreateFrame("Frame")
     currencyEventFrame:RegisterEvent("CURRENCY_DISPLAY_UPDATE")
     currencyEventFrame:SetScript("OnEvent", function()
-        if IsCharacterTabSelected() then
-            UpdateCrestCurrency(_G["GearUpgradeCurrencyFrame"]) -- Use the global frame
+        if addon.isCharacterTabSelected() then
+            updateCrestCurrency(_G["GearUpgradeCurrencyFrame"]) -- Use the global frame
         end
     end)
 
@@ -371,7 +368,7 @@ local function SetupEventHandlers()
 end
 
 -- Export the update function
-addon.UpdateCrestCurrency = UpdateCrestCurrency
+addon.updateCrestCurrency = updateCrestCurrency
 
 -- Initialize
 SetupEventHandlers()

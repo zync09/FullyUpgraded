@@ -27,14 +27,12 @@ local max = math.max
 -- Optimization: Create a single tooltip frame and reuse it
 local tooltipFrame = CreateFrame("GameTooltip", "GearUpgradeTooltip", UIParent, "GameTooltipTemplate")
 
--- Cache variables
+-- Cache variables with timestamps
 local currencyCache = {}
 local upgradeCalculationsCache = {
     lastUpdate = 0,
     data = {}
 }
-local CACHE_TIMEOUT = 1                                      -- Cache timeout in seconds
-local MAX_CACHE_ENTRIES = 50                                 -- Maximum number of entries in caches
 local tooltipCache = setmetatable({}, { __mode = "v" })      -- Weak values for tooltip cache
 local itemCache = setmetatable({}, { __mode = "v" })         -- Weak values for item cache
 local tooltipDataCache = setmetatable({}, { __mode = "kv" }) -- Weak references for tooltip data
@@ -63,22 +61,23 @@ local tablePool = {
 }
 
 -- Create master frame that will contain both displays
-local masterFrame = CreateFrame("Frame", "GearUpgradeMasterFrame", CharacterFrame, "BackdropTemplate")
+local masterFrame = CreateFrame("Button", "GearUpgradeMasterFrame", CharacterFrame, "BackdropTemplate")
 masterFrame:SetPoint("TOPRIGHT", CharacterFrame, "BOTTOMRIGHT", 0, 0)
-masterFrame:SetSize(230, 100) -- Adjusted size to be more compact
+masterFrame:SetSize(addon.MASTER_FRAME_MIN_WIDTH, 100) -- Adjusted size to be more compact
+masterFrame:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 
 -- Function to update master frame size
-local function UpdateMasterFrameSize()
+local function updateMasterFrameSize()
     if not currencyFrame then return end
 
-    local padding = 8 -- Reduced padding
+    local padding = addon.FRAME_PADDING
     local titleHeight = titleText and titleText:GetHeight() or 0
     local currencyHeight = currencyFrame:GetHeight()
     local currencyWidth = currencyFrame:GetWidth()
 
     -- Set master frame size based on content plus padding
     masterFrame:SetSize(
-        math.max(230, currencyWidth + padding * 2), -- Minimum width of 230
+        math.max(addon.MASTER_FRAME_MIN_WIDTH, currencyWidth + padding * 2),
         titleHeight + currencyHeight + padding * 2
     )
 end
@@ -86,9 +85,9 @@ end
 -- Add a timer to update sizes after text rendering
 local function DelayedSizeUpdate()
     C_Timer.After(0.1, function()
-        UpdateMasterFrameSize()
-        if addon.UpdateCrestCurrency then
-            addon.UpdateCrestCurrency(currencyFrame)
+        updateMasterFrameSize()
+        if addon.updateCrestCurrency then
+            addon.updateCrestCurrency(currencyFrame)
         end
     end)
 end
@@ -103,6 +102,29 @@ masterFrame:SetBackdrop({
 masterFrame:SetBackdropColor(0.1, 0.1, 0.1, 0.95)
 masterFrame:SetBackdropBorderColor(0, 0, 0, 1)
 
+-- Add click handler for sharing
+masterFrame:SetScript("OnClick", function(self, button)
+    if button == "LeftButton" then
+        shareUpgradeNeeds()
+    elseif button == "RightButton" then
+        -- Show context menu or additional options
+        print("|cFFFFFF00FullyUpgraded:|r Right-click options coming soon!")
+    end
+end)
+
+-- Add tooltip for master frame
+masterFrame:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_TOP")
+    GameTooltip:AddLine("Fully Upgraded")
+    GameTooltip:AddLine("Left-click to share upgrade needs in chat", 0.8, 0.8, 0.8)
+    GameTooltip:AddLine("Use /fu for more options", 0.8, 0.8, 0.8)
+    GameTooltip:Show()
+end)
+
+masterFrame:SetScript("OnLeave", function()
+    GameTooltip:Hide()
+end)
+
 -- Create title text
 local titleText = masterFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 titleText:SetPoint("TOP", masterFrame, "TOP", 0, -5)
@@ -112,14 +134,13 @@ titleText:SetTextColor(1, 1, 0) -- Gold color
 -- Create currency frame as a child of master frame (no backdrop needed)
 local currencyFrame = CreateFrame("Frame", "GearUpgradeCurrencyFrame", masterFrame)
 currencyFrame:SetPoint("TOP", titleText, "BOTTOM", 0, -2) -- Position relative to title
-currencyFrame:SetSize(140, 20)                            -- Initial size, will be updated by CrestCurrencyFrame.lua
+currencyFrame:SetSize(addon.CURRENCY_FRAME_WIDTH, addon.CURRENCY_FRAME_HEIGHT) -- Initial size, will be updated by CrestCurrencyFrame.lua
 
 -- Set up frame update events
-currencyFrame:SetScript("OnSizeChanged", UpdateMasterFrameSize)
-C_Timer.After(0.1, UpdateMasterFrameSize) -- Initial size update after everything is created
+currencyFrame:SetScript("OnSizeChanged", updateMasterFrameSize)
+C_Timer.After(addon.DELAYED_SIZE_UPDATE_TIME, updateMasterFrameSize) -- Initial size update after everything is created
 
--- Add after other local variables
-local debugMode = false -- Set to true to enable debug messages
+-- Use shared debug mode from addon namespace
 
 -- Initialize saved variables
 local function InitializeSavedVariables()
@@ -156,18 +177,19 @@ end
 -- Export UpdateTextPositions to addon namespace
 addon.UpdateTextPositions = UpdateTextPositions
 
--- Function to check if character tab is selected
-local function IsCharacterTabSelected()
-    return PaperDollFrame:IsVisible()
+-- Export shared function to check if character tab is selected
+local function isCharacterTabSelected()
+    return PaperDollFrame and PaperDollFrame:IsVisible()
 end
+addon.isCharacterTabSelected = isCharacterTabSelected
 
 -- Function to check if currency has changed
 local function HasCurrencyChanged()
     local hasChanged = false
     for crestType, crestData in pairs(CURRENCY.CRESTS) do
         if crestData.currencyID then
-            local info = C_CurrencyInfo.GetCurrencyInfo(crestData.currencyID)
-            if info then
+            local success, info = pcall(C_CurrencyInfo.GetCurrencyInfo, crestData.currencyID)
+            if success and info then
                 local cachedValue = currencyCache[crestType] and currencyCache[crestType].quantity
                 if not cachedValue or cachedValue ~= info.quantity then
                     hasChanged = true
@@ -185,8 +207,8 @@ local function CheckCurrencyForAllCrests()
 
     for crestType, crestData in pairs(CURRENCY.CRESTS) do
         if crestData.currencyID then
-            local info = C_CurrencyInfo.GetCurrencyInfo(crestData.currencyID)
-            if info then
+            local success, info = pcall(C_CurrencyInfo.GetCurrencyInfo, crestData.currencyID)
+            if success and info then
                 -- Check if we need to update the cache
                 if not currencyCache[crestType] or
                     currencyCache[crestType].quantity ~= info.quantity or
@@ -215,7 +237,7 @@ end
 
 -- Function to update frame visibility
 local function UpdateFrameVisibility()
-    if IsCharacterTabSelected() then
+    if isCharacterTabSelected() then
         masterFrame:Show()
     else
         masterFrame:Hide()
@@ -266,7 +288,7 @@ local function CalculateUpgradedCrests()
     local currentTime = GetTime()
 
     -- Check if cache is still valid
-    if upgradeCalculationsCache.lastUpdate + CACHE_TIMEOUT > currentTime then
+    if upgradeCalculationsCache.lastUpdate + addon.CACHE_TIMEOUT > currentTime then
         -- Apply cached values
         for crestType, data in pairs(upgradeCalculationsCache.data) do
             if CURRENCY.CRESTS[crestType] then
@@ -326,13 +348,13 @@ local function UpdateDisplay()
         return
     end
 
-    if IsCharacterTabSelected() then
+    if isCharacterTabSelected() then
         -- Clean caches periodically
         CleanOldCacheEntries()
 
         -- Only initialize texts if they don't exist
         if not next(addon.upgradeTextPool) then
-            addon.InitializeUpgradeTexts()
+            addon.initializeUpgradeTexts()
         end
 
         local currencyChanged = CheckCurrencyForAllCrests()
@@ -345,8 +367,8 @@ local function UpdateDisplay()
 
         -- Update the display only if something changed
         if currencyChanged or calculationsChanged then
-            if addon.UpdateAllUpgradeTexts then
-                addon.UpdateAllUpgradeTexts()
+            if addon.updateAllUpgradeTexts then
+                addon.updateAllUpgradeTexts()
             end
         end
 
@@ -389,16 +411,18 @@ local function SetUpgradeTooltip(self, tooltipInfo)
 
                 if CURRENCY.CRESTS[req.crestType] and CURRENCY.CRESTS[req.crestType].currencyID then
                     local currencyID = CURRENCY.CRESTS[req.crestType].currencyID
-                    local currencyInfo = C_CurrencyInfo.GetCurrencyInfo(currencyID)
-                    local iconText = CreateTextureMarkup(currencyInfo.iconFileID, 64, 64, 16, 16, 0, 1, 0, 1)
-                    -- Use the actual currency name from the API
-                    local currencyName = currencyInfo.name or (baseData.baseName .. " Crest")
+                    local success, currencyInfo = pcall(C_CurrencyInfo.GetCurrencyInfo, currencyID)
+                    if success and currencyInfo then
+                        local iconText = CreateTextureMarkup(currencyInfo.iconFileID, 64, 64, 16, 16, 0, 1, 0, 1)
+                        -- Use the actual currency name from the API
+                        local currencyName = currencyInfo.name or (baseData.baseName .. " Crest")
                     GameTooltip:AddLine(string.format("%s %d x |cFF%s%s%s|r",
                         iconText,
                         req.count,
                         baseData.color,
                         currencyName,
-                        mythicText))
+                            mythicText))
+                    end
                 end
             end
 
@@ -409,16 +433,18 @@ local function SetUpgradeTooltip(self, tooltipInfo)
 
                 if CURRENCY.CRESTS[req.crestType] and CURRENCY.CRESTS[req.crestType].currencyID then
                     local currencyID = CURRENCY.CRESTS[req.crestType].currencyID
-                    local currencyInfo = C_CurrencyInfo.GetCurrencyInfo(currencyID)
-                    local iconText = CreateTextureMarkup(currencyInfo.iconFileID, 64, 64, 16, 16, 0, 1, 0, 1)
-                    -- Use the actual currency name from the API
-                    local currencyName = currencyInfo.name or (baseData.baseName .. " Crest")
+                    local success, currencyInfo = pcall(C_CurrencyInfo.GetCurrencyInfo, currencyID)
+                    if success and currencyInfo then
+                        local iconText = CreateTextureMarkup(currencyInfo.iconFileID, 64, 64, 16, 16, 0, 1, 0, 1)
+                        -- Use the actual currency name from the API
+                        local currencyName = currencyInfo.name or (baseData.baseName .. " Crest")
                     GameTooltip:AddLine(string.format("%s %d x |cFF%s%s%s|r",
                         iconText,
                         req.count,
                         baseData.color,
                         currencyName,
-                        mythicText))
+                            mythicText))
+                    end
                 end
             end
         elseif tooltipInfo.requirements.standard then
@@ -522,26 +548,73 @@ local function GetCachedTooltipData(slotID, itemLink)
     return data
 end
 
--- Optimization: Cache item info
+-- Optimization: Cache item info with error handling
 local function GetCachedItemInfo(itemLink)
     if not itemCache[itemLink] then
-        itemCache[itemLink] = { C_Item.GetItemInfo(itemLink) }
+        local success, result = pcall(function()
+            return { C_Item.GetItemInfo(itemLink) }
+        end)
+        if success then
+            itemCache[itemLink] = result
+        else
+            return nil
+        end
     end
-    return unpack(itemCache[itemLink])
+    return unpack(itemCache[itemLink] or {})
 end
 
 -- Function to show crest currency
-local function ShowCrestCurrency()
-    if addon.UpdateCrestCurrency then
-        addon.UpdateCrestCurrency(currencyFrame)
+local function showCrestCurrency()
+    if addon.updateCrestCurrency then
+        addon.updateCrestCurrency(currencyFrame)
     end
 end
 
 -- Export ShowCrestCurrency function
-addon.ShowCrestCurrency = ShowCrestCurrency
+addon.showCrestCurrency = showCrestCurrency
 
 -- Call it initially
-C_Timer.After(0.1, ShowCrestCurrency)
+C_Timer.After(0.1, showCrestCurrency)
+
+-- Function to share upgrade needs in chat
+local function shareUpgradeNeeds()
+    -- Check if we have any upgrade needs
+    local hasNeeds = false
+    local messageParts = {}
+    
+    -- Build the message with crest needs
+    table.insert(messageParts, "My upgrade needs: ")
+    
+    for _, crestType in ipairs(CREST_ORDER) do
+        local crestData = CURRENCY.CRESTS[crestType]
+        if crestData and crestData.needed and crestData.needed > 0 then
+            local current = crestData.current or 0
+            local needed = crestData.needed
+            local crestName = addon.CREST_BASE[crestType] and addon.CREST_BASE[crestType].baseName or crestType
+            
+            if current < needed then
+                hasNeeds = true
+                table.insert(messageParts, string.format("%s: %d/%d", crestName, current, needed))
+            end
+        end
+    end
+    
+    if hasNeeds then
+        local channel = IsInGroup(LE_PARTY_CATEGORY_INSTANCE) and "INSTANCE_CHAT" or
+                       IsInRaid() and "RAID" or
+                       IsInGroup() and "PARTY" or
+                       "SAY"
+        
+        local message = table.concat(messageParts, " | ")
+        SendChatMessage(message, channel)
+        print("|cFFFFFF00FullyUpgraded:|r Shared upgrade needs in " .. channel)
+    else
+        print("|cFFFFFF00FullyUpgraded:|r No upgrade needs to share!")
+    end
+end
+
+-- Export the share function
+addon.shareUpgradeNeeds = shareUpgradeNeeds
 
 -- **Event Handling**
 f:RegisterEvent("PLAYER_LOGIN")
@@ -555,7 +628,7 @@ local updateThrottled = false
 local function ThrottledUpdate()
     if not updateThrottled then
         updateThrottled = true
-        if IsCharacterTabSelected() then
+        if isCharacterTabSelected() then
             UpdateDisplay()
         end
         updateThrottled = false
@@ -570,14 +643,23 @@ f:SetScript("OnEvent", function(_, event)
 
         -- Initialize once
         if not addon.initialized then
-            addon.InitializeUpgradeTexts()
+            -- Ensure CharacterFrame.lua has loaded and exported its functions
+            if addon.initializeCharacterFrame then
+                addon.initializeCharacterFrame()
+            else
+                print("[FullyUpgraded] ERROR: initializeCharacterFrame not available yet")
+            end
             addon.initialized = true
             UpdateDisplay()
         end
         UpdateFrameVisibility()
     elseif event == "PLAYER_LOGIN" then
         if not addon.initialized then
-            addon.InitializeUpgradeTexts()
+            if addon.initializeCharacterFrame then
+                addon.initializeCharacterFrame()
+            else
+                print("[FullyUpgraded] ERROR: initializeCharacterFrame not available at login")
+            end
             addon.initialized = true
             UpdateDisplay()
         end
@@ -599,13 +681,13 @@ local function ForceCurrencyUpdate()
 
     CheckCurrencyForAllCrests()
     CalculateUpgradedCrests()
-    if addon.ShowCrestCurrency then
-        addon.ShowCrestCurrency()
+    if addon.showCrestCurrency then
+        addon.showCrestCurrency()
     end
 
     -- Update display immediately
-    if addon.UpdateAllUpgradeTexts then
-        addon.UpdateAllUpgradeTexts()
+    if addon.updateAllUpgradeTexts then
+        addon.updateAllUpgradeTexts()
     end
 end
 
@@ -619,8 +701,8 @@ local function SetTextVisibility(visible)
     end
     
     -- Force a refresh to show/hide items properly
-    if visible and addon.UpdateAllUpgradeTexts then
-        addon.UpdateAllUpgradeTexts()
+    if visible and addon.updateAllUpgradeTexts then
+        addon.updateAllUpgradeTexts()
     end
 end
 
@@ -661,10 +743,12 @@ SlashCmdList["FULLYUPGRADED"] = function(msg)
     elseif cmd == "currency" or cmd == "c" then
         print("|cFFFFFF00FullyUpgraded:|r Refreshing currency information...")
         ForceCurrencyUpdate()
+    elseif cmd == "share" then
+        shareUpgradeNeeds()
     elseif cmd == "debug" then
-        debugMode = not debugMode
-        print("|cFFFFFF00FullyUpgraded:|r Debug mode " .. (debugMode and "enabled" or "disabled"))
-        if debugMode then
+        addon.debugMode = not addon.debugMode
+        print("|cFFFFFF00FullyUpgraded:|r Debug mode " .. (addon.debugMode and "enabled" or "disabled"))
+        if addon.debugMode then
             UpdateDisplay()
         end
     else
@@ -673,6 +757,7 @@ SlashCmdList["FULLYUPGRADED"] = function(msg)
         print("  /fu show - Show upgrade text")
         print("  /fu hide - Hide upgrade text")
         print("  /fu text - Toggle upgrade text visibility")
+        print("  /fu share - Share upgrade needs in chat")
         print("  /fu refresh - Manually refresh upgrade information")
         print("  /fu currency - Manually refresh currency information")
         print("  /fu debug - Toggle debug mode")
@@ -741,14 +826,24 @@ local function GetCurrentSeasonItemLevelRange()
     return SEASONS[3].MIN_ILVL, SEASONS[3].MAX_ILVL
 end
 
+-- Define Debug function
+local function Debug(message)
+    if addon.debugMode then
+        print(string.format("[FullyUpgraded] %s", message))
+    end
+end
+
 -- Export functions to addon namespace
 addon.Debug = Debug
-addon.UpdateDisplay = UpdateDisplay
-addon.SetUpgradeTooltip = SetUpgradeTooltip
-addon.ProcessUpgradeTrack = ProcessUpgradeTrack
-addon.GetCachedTooltipData = GetCachedTooltipData
-addon.GetCachedItemInfo = GetCachedItemInfo
-addon.CalculateUpgradedCrests = CalculateUpgradedCrests
-addon.CheckCurrencyForAllCrests = CheckCurrencyForAllCrests
-addon.GetCurrentSeasonItemLevelRange = GetCurrentSeasonItemLevelRange
-addon.ForceCurrencyUpdate = ForceCurrencyUpdate
+addon.updateDisplay = UpdateDisplay
+addon.setUpgradeTooltip = SetUpgradeTooltip
+addon.processUpgradeTrack = ProcessUpgradeTrack
+addon.getCachedTooltipData = GetCachedTooltipData
+addon.getCachedItemInfo = GetCachedItemInfo
+addon.calculateUpgradedCrests = CalculateUpgradedCrests
+addon.checkCurrencyForAllCrests = CheckCurrencyForAllCrests
+addon.getCurrentSeasonItemLevelRange = GetCurrentSeasonItemLevelRange
+addon.forceCurrencyUpdate = ForceCurrencyUpdate
+
+-- Character frame initialization will happen via events, not here
+print("[FullyUpgraded] FullyUpgraded.lua loaded, waiting for game events to initialize")

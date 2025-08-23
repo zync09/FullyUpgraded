@@ -10,16 +10,13 @@ addon.upgradeTextPool = {}  -- Make upgradeTextPool accessible to the main file
 local upgradeTextPool = addon.upgradeTextPool
 local currentTextPos = "TR" -- Default position
 
--- Font settings
+-- Font settings from constants
 local fontFile = GameFontNormal:GetFont()
-local fontSize = 12
-local fontFlags = "OUTLINE, THICKOUTLINE"
+local fontSize = addon.FONT_SIZE
+local fontFlags = addon.FONT_FLAGS
 
--- Debug state
-local debugMode = false
-
-local function DebugPrint(message)
-    if debugMode then
+local function debugPrint(message)
+    if addon.debugMode then
         print(string.format("[FullyUpgraded] %s", message))
     end
 end
@@ -27,14 +24,9 @@ end
 -- Tooltip state management
 local tooltipData = {}
 
--- Function to check if character tab is selected
-local function IsCharacterTabSelected()
-    return PaperDollFrame and PaperDollFrame:IsVisible()
-end
-
 -- Simple tooltip handling
-local function ShowTooltip(button, tooltipFunc)
-    if not button:IsVisible() or not IsCharacterTabSelected() then return end
+local function showTooltip(button, tooltipFunc)
+    if not button:IsVisible() or not addon.isCharacterTabSelected() then return end
 
     GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
     GameTooltip:ClearLines()
@@ -46,7 +38,7 @@ local function ShowTooltip(button, tooltipFunc)
     GameTooltip:Show()
 end
 
-local function HideTooltip()
+local function hideTooltip()
     GameTooltip:Hide()
 end
 
@@ -59,7 +51,6 @@ local function CreateUpgradeText(slot)
     button:SetSize(30, 20)
 
     local text = button:CreateFontString(nil, "OVERLAY")
-    text:SetFontObject("GameFontNormalLarge")
     text:SetFont(fontFile, fontSize, fontFlags)
     text:SetJustifyH("RIGHT")
     text:SetDrawLayer("OVERLAY", 7)
@@ -86,34 +77,31 @@ local function CreateUpgradeText(slot)
 
     -- Set up tooltip handling
     button:SetScript("OnEnter", function(self)
-        ShowTooltip(self, function(button)
-            addon.SetUpgradeTooltip(button, tooltipData[button.slot])
+        showTooltip(self, function(button)
+            addon.setUpgradeTooltip(button, tooltipData[button.slot])
         end)
     end)
 
-    button:SetScript("OnLeave", HideTooltip)
+    button:SetScript("OnLeave", hideTooltip)
 
     return button
 end
 
 -- **Initialize All Equipment Slot Overlays**
-local function InitializeUpgradeTexts()
+local function initializeUpgradeTexts()
     if next(upgradeTextPool) then return end
 
     for _, slot in ipairs(EQUIPMENT_SLOTS) do
         local button = CreateUpgradeText(slot)
         if button then
             upgradeTextPool[slot] = button
-            if not button.text:GetFont() then
-                button.text:SetFont(fontFile, fontSize, fontFlags)
-            end
         end
     end
 end
 
 -- Clean up text elements
-local function CleanupUpgradeTexts()
-    HideTooltip()
+local function cleanupUpgradeTexts()
+    hideTooltip()
 
     for slot, button in pairs(upgradeTextPool) do
         if button then
@@ -125,8 +113,7 @@ local function CleanupUpgradeTexts()
 end
 
 -- Process a Season 1 item
-local function ProcessSeason1Item(button)
-    button.text:SetFont(fontFile, fontSize, fontFlags)
+local function processSeason1Item(button)
     button.text:SetText(string.format("|cFF%02x%02x%02xS1|r", 240, 100, 50))
     button:Show()
 
@@ -137,7 +124,7 @@ local function ProcessSeason1Item(button)
 end
 
 -- Process an upgradeable item
-local function ProcessUpgradeableItem(button, track, trackName, currentNum, maxNum, levelsToUpgrade)
+local function processUpgradeableItem(button, track, trackName, currentNum, maxNum, levelsToUpgrade)
     if not button or not track or not trackName then
         return
     end
@@ -194,11 +181,11 @@ local function ProcessUpgradeableItem(button, track, trackName, currentNum, maxN
         end
     end
 
-    addon.ProcessUpgradeTrack(track, levelsToUpgrade, currentNum)
+    addon.processUpgradeTrack(track, levelsToUpgrade, currentNum)
 end
 
 -- Process a fully upgraded item
-local function ProcessFullyUpgradedItem(button, trackName, currentNum, maxNum)
+local function processFullyUpgradedItem(button, trackName, currentNum, maxNum)
     local trackLetter = trackName:upper():sub(1, 1)
     button.text:SetText("|cFFffffff" .. trackLetter .. "|r")
     button:Show()
@@ -213,20 +200,19 @@ local function ProcessFullyUpgradedItem(button, trackName, currentNum, maxNum)
 end
 
 -- Process equipment slot
-local function ProcessEquipmentSlot(slot, button)
+local function processEquipmentSlot(slot, button)
     button:ClearAllPoints()
     local posData = TEXT_POSITIONS[currentTextPos]
     button:SetPoint(posData.point, button.slotFrame, posData.point, posData.x, posData.y)
     button.text:SetText("")
-    button.text:SetFont(fontFile, fontSize, fontFlags)
 
     -- Ensure tooltip handlers are set
     button:SetScript("OnEnter", function(self)
-        ShowTooltip(self, function(button)
-            addon.SetUpgradeTooltip(button, tooltipData[button.slot])
+        showTooltip(self, function(button)
+            addon.setUpgradeTooltip(button, tooltipData[button.slot])
         end)
     end)
-    button:SetScript("OnLeave", HideTooltip)
+    button:SetScript("OnLeave", hideTooltip)
 
     local slotID = GetInventorySlotInfo(slot)
     local itemLink = GetInventoryItemLink("player", slotID)
@@ -236,18 +222,18 @@ local function ProcessEquipmentSlot(slot, button)
         return
     end
 
-    local _, _, _, effectiveILvl = addon.GetCachedItemInfo(itemLink)
-    local tooltipData = addon.GetCachedTooltipData(slotID, itemLink)
+    local _, _, _, effectiveILvl = addon.getCachedItemInfo(itemLink)
+    local tooltipData = addon.getCachedTooltipData(slotID, itemLink)
     local shouldShow = false
 
     if effectiveILvl and tooltipData then
-        local minIlvl, maxIlvl = addon.GetCurrentSeasonItemLevelRange()
+        local minIlvl, maxIlvl = addon.getCurrentSeasonItemLevelRange()
 
         if effectiveILvl >= minIlvl and effectiveILvl <= maxIlvl then
             -- Check for Season 1 item
             for _, line in ipairs(tooltipData.lines) do
                 if line.leftText and line.leftText:find("The War Within Season 1") then
-                    ProcessSeason1Item(button)
+                    processSeason1Item(button)
                     shouldShow = true
                     break
                 end
@@ -270,10 +256,10 @@ local function ProcessEquipmentSlot(slot, button)
                                 if track then
                                     shouldShow = true
                                     if currentNum < maxNum then
-                                        ProcessUpgradeableItem(button, track, trackName, currentNum, maxNum,
+                                        processUpgradeableItem(button, track, trackName, currentNum, maxNum,
                                             maxNum - currentNum)
                                     else
-                                        ProcessFullyUpgradedItem(button, trackName, currentNum, maxNum)
+                                        processFullyUpgradedItem(button, trackName, currentNum, maxNum)
                                     end
                                 end
                             end
@@ -291,10 +277,10 @@ local function ProcessEquipmentSlot(slot, button)
 end
 
 -- Main update function for all upgrade texts
-local function UpdateAllUpgradeTexts()
+local function updateAllUpgradeTexts()
     -- Make sure we have text elements initialized
     if not next(upgradeTextPool) then
-        InitializeUpgradeTexts()
+        initializeUpgradeTexts()
     end
     
     -- Ensure saved variables are loaded
@@ -317,13 +303,13 @@ local function UpdateAllUpgradeTexts()
     for _, slot in ipairs(EQUIPMENT_SLOTS) do
         local button = upgradeTextPool[slot]
         if button then
-            ProcessEquipmentSlot(slot, button)
+            processEquipmentSlot(slot, button)
         end
     end
 end
 
 -- Update text positions
-local function UpdateTextPositions(position)
+local function updateTextPositions(position)
     if not TEXT_POSITIONS[position] then return end
 
     currentTextPos = position
@@ -333,17 +319,17 @@ local function UpdateTextPositions(position)
         if button and button.slotFrame then
             button:ClearAllPoints()
             button:SetPoint(posData.point, button.slotFrame, posData.point, posData.x, posData.y)
-            ProcessEquipmentSlot(slot, button)
+            processEquipmentSlot(slot, button)
         end
     end
 end
 
 -- Set text visibility
-local function SetTextVisibility(show)
+local function setTextVisibility(show)
     for slot, button in pairs(upgradeTextPool) do
         if button then
             if show then
-                ProcessEquipmentSlot(slot, button)
+                processEquipmentSlot(slot, button)
             else
                 button:Hide()
                 button.text:SetText("")
@@ -353,35 +339,49 @@ local function SetTextVisibility(show)
 end
 
 -- Setup character frame hooks
-local function SetupCharacterFrameHooks()
-    local function DoUpdate()
-        if IsCharacterTabSelected() then
-            addon.CheckCurrencyForAllCrests()
-            addon.CalculateUpgradedCrests()
-            addon.UpdateAllUpgradeTexts()
+local function setupCharacterFrameHooks()
+    local function doUpdate()
+        if addon.isCharacterTabSelected() then
+            -- Debug: Check if functions exist before calling
+            if not addon.checkCurrencyForAllCrests then
+                print("[FullyUpgraded] ERROR: checkCurrencyForAllCrests not found in addon namespace")
+                return
+            end
+            if not addon.calculateUpgradedCrests then
+                print("[FullyUpgraded] ERROR: calculateUpgradedCrests not found in addon namespace")
+                return
+            end
+            if not addon.updateAllUpgradeTexts then
+                print("[FullyUpgraded] ERROR: updateAllUpgradeTexts not found in addon namespace")
+                return
+            end
+            
+            addon.checkCurrencyForAllCrests()
+            addon.calculateUpgradedCrests()
+            addon.updateAllUpgradeTexts()
         end
     end
 
     if PaperDollFrame then
-        PaperDollFrame:HookScript("OnShow", DoUpdate)
-        PaperDollFrame:HookScript("OnHide", HideTooltip)
+        PaperDollFrame:HookScript("OnShow", doUpdate)
+        PaperDollFrame:HookScript("OnHide", hideTooltip)
     end
 
     if CharacterFrame then
-        CharacterFrame:HookScript("OnShow", DoUpdate)
-        CharacterFrame:HookScript("OnHide", CleanupUpgradeTexts)
+        CharacterFrame:HookScript("OnShow", doUpdate)
+        CharacterFrame:HookScript("OnHide", cleanupUpgradeTexts)
     end
 
     -- Hook equipment updates with throttling
     local updateThrottled = false
     if PaperDollItemSlotButton_Update then
         hooksecurefunc("PaperDollItemSlotButton_Update", function(button)
-            if button and IsCharacterTabSelected() and upgradeTextPool[button:GetName():gsub("Character", "")] then
+            if button and addon.isCharacterTabSelected() and upgradeTextPool[button:GetName():gsub("Character", "")] then
                 if not updateThrottled then
                     updateThrottled = true
-                    C_Timer.After(0.1, function()
-                        if IsCharacterTabSelected() then
-                            DoUpdate()
+                    C_Timer.After(addon.UPDATE_THROTTLE_TIME, function()
+                        if addon.isCharacterTabSelected() then
+                            doUpdate()
                         end
                         updateThrottled = false
                     end)
@@ -392,12 +392,16 @@ local function SetupCharacterFrameHooks()
 end
 
 -- Initialize the module
-local function Initialize()
-    SetupCharacterFrameHooks()
+local function initialize()
+    debugPrint("Initializing character frame module...")
+    setupCharacterFrameHooks()
+    -- Ensure upgrade texts are initialized when character frame is set up
+    initializeUpgradeTexts()
+    debugPrint("Character frame module initialized successfully")
 end
 
 -- Update crest currency display
-local function UpdateCrestCurrency(frame)
+local function updateCrestCurrency(frame)
     if not frame then return end
 
     -- Clear existing children
@@ -488,22 +492,15 @@ local function UpdateCrestCurrency(frame)
 end
 
 -- Export functions to addon namespace
-addon.InitializeUpgradeTexts = InitializeUpgradeTexts
-addon.UpdateAllUpgradeTexts = UpdateAllUpgradeTexts
-addon.UpdateTextPositions = UpdateTextPositions
-addon.SetTextVisibility = SetTextVisibility
+addon.initializeUpgradeTexts = initializeUpgradeTexts
+addon.updateAllUpgradeTexts = updateAllUpgradeTexts
+addon.updateTextPositions = updateTextPositions
+addon.setTextVisibility = setTextVisibility
 addon.upgradeTextPool = upgradeTextPool
-addon.UpdateCrestCurrency = UpdateCrestCurrency
+addon.updateCrestCurrency = updateCrestCurrency
 
--- Add debug command
-SLASH_FULLYUPGRADED1 = "/fu"
-SLASH_FULLYUPGRADED2 = "/fullyupgraded"
-SlashCmdList["FULLYUPGRADED"] = function(msg)
-    if msg == "debug" then
-        debugMode = not debugMode
-        print("Debug mode " .. (debugMode and "enabled" or "disabled"))
-    end
-end
+-- Debug command is handled in main FullyUpgraded.lua file
 
--- Initialize when this file is loaded
-Initialize()
+-- Export initialize function, will be called from main FullyUpgraded.lua
+print("[FullyUpgraded] CharacterFrame.lua loaded, exporting initializeCharacterFrame")
+addon.initializeCharacterFrame = initialize
