@@ -82,6 +82,9 @@ local function updateMasterFrameSize()
     )
 end
 
+-- Export the function so it can be called from currency frame
+masterFrame.updateFrameSize = updateMasterFrameSize
+
 -- Add a timer to update sizes after text rendering
 local function DelayedSizeUpdate()
     C_Timer.After(0.1, function()
@@ -125,15 +128,76 @@ masterFrame:SetScript("OnLeave", function()
     GameTooltip:Hide()
 end)
 
--- Create title text
+-- Create title text (moved to left)
 local titleText = masterFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-titleText:SetPoint("TOP", masterFrame, "TOP", 0, -5)
+titleText:SetPoint("TOPLEFT", masterFrame, "TOPLEFT", 8, -5)
 titleText:SetText("Fully Upgraded:")
 titleText:SetTextColor(1, 1, 0) -- Gold color
 
--- Create currency frame as a child of master frame (no backdrop needed)
+-- Create Valorstones display in top right
+local valorFrame = CreateFrame("Frame", nil, masterFrame)
+valorFrame:SetSize(60, 20)
+valorFrame:SetPoint("TOPRIGHT", masterFrame, "TOPRIGHT", -8, -3)
+
+local valorIcon = valorFrame:CreateTexture(nil, "ARTWORK")
+valorIcon:SetSize(16, 16)
+valorIcon:SetPoint("RIGHT", valorFrame, "RIGHT", 0, 0)
+
+local valorText = valorFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+valorText:SetPoint("RIGHT", valorIcon, "LEFT", -3, 0)
+valorText:SetTextColor(0, 1, 0) -- Green for Valorstones
+valorText:SetFont(valorText:GetFont(), 11)
+
+-- Make Valorstones frame interactive for tooltip
+valorFrame:EnableMouse(true)
+valorFrame:SetScript("OnEnter", function(self)
+    local valorData = addon.CURRENCY.VALORSTONES
+    if valorData and valorData.currencyID then
+        local info = C_CurrencyInfo.GetCurrencyInfo(valorData.currencyID)
+        if info then
+            GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+            GameTooltip:AddLine(info.name)
+            GameTooltip:AddLine("Current: " .. (info.quantity or 0), 1, 1, 1)
+            GameTooltip:AddLine("Maximum: 2000", 1, 1, 1)
+            GameTooltip:AddLine(" ")
+            GameTooltip:AddLine("Sources:", 0.9, 0.7, 0)
+            GameTooltip:AddLine("• Quests, Raids, Dungeons", 0.8, 0.8, 0.8)
+            GameTooltip:AddLine("• Battlegrounds, Arena", 0.8, 0.8, 0.8)
+            GameTooltip:AddLine("• Delves, World Activities", 0.8, 0.8, 0.8)
+            GameTooltip:AddLine(" ")
+            GameTooltip:AddLine("Used to upgrade all max-level gear", 0.8, 0.8, 0.8)
+            GameTooltip:Show()
+        end
+    end
+end)
+
+valorFrame:SetScript("OnLeave", function()
+    GameTooltip:Hide()
+end)
+
+-- Function to update Valorstones display
+local function updateValorstones()
+    local valorData = addon.CURRENCY.VALORSTONES
+    if valorData and valorData.currencyID then
+        local info = C_CurrencyInfo.GetCurrencyInfo(valorData.currencyID)
+        if info then
+            valorIcon:SetTexture(info.iconFileID)
+            valorText:SetText(tostring(info.quantity or 0))
+            valorFrame:Show()
+        else
+            valorFrame:Hide()
+        end
+    else
+        valorFrame:Hide()
+    end
+end
+
+-- Export the update function
+addon.updateValorstones = updateValorstones
+
+-- Create currency frame for crests only (positioned below the title bar)
 local currencyFrame = CreateFrame("Frame", "GearUpgradeCurrencyFrame", masterFrame)
-currencyFrame:SetPoint("TOP", titleText, "BOTTOM", 0, -2) -- Position relative to title
+currencyFrame:SetPoint("TOP", masterFrame, "TOP", 0, -25) -- Position below title/valor row
 currencyFrame:SetSize(addon.CURRENCY_FRAME_WIDTH, addon.CURRENCY_FRAME_HEIGHT) -- Initial size, will be updated by CrestCurrencyFrame.lua
 
 -- Set up frame update events
@@ -146,7 +210,7 @@ C_Timer.After(addon.DELAYED_SIZE_UPDATE_TIME, updateMasterFrameSize) -- Initial 
 local function InitializeSavedVariables()
     if not FullyUpgradedDB then
         FullyUpgradedDB = {
-            textPosition = "TR", -- Default position
+            textPosition = "TR", -- Default position - top right with background
             textVisible = true   -- Default visibility
         }
     end
@@ -251,15 +315,23 @@ CharacterFrame:HookScript("OnHide", function() masterFrame:Hide() end)
 -- Hook tab changes
 hooksecurefunc("ToggleCharacter", UpdateFrameVisibility)
 
--- Function to clean old cache entries
+-- Optimized cache cleanup with reduced frequency
+local lastCleanupTime = 0
 local function CleanOldCacheEntries()
     local currentTime = GetTime()
+    
+    -- Only clean caches every 30 seconds (configurable)
+    if currentTime - lastCleanupTime < (addon.CACHE_CLEANUP_INTERVAL or 30) then
+        return
+    end
+    lastCleanupTime = currentTime
 
     -- Clean tooltip cache if it gets too large
     local count = 0
-    for k in pairs(tooltipCache) do
+    for k, v in pairs(tooltipCache) do
         count = count + 1
-        if count > MAX_CACHE_ENTRIES then
+        -- Remove old entries or if cache is too large
+        if count > MAX_CACHE_ENTRIES or (currentTime - v.time) > addon.TOOLTIP_CACHE_TTL then
             tooltipCache[k] = nil
         end
     end
@@ -346,6 +418,11 @@ local function UpdateDisplay()
     -- Skip intensive calculations if player is in combat
     if UnitAffectingCombat("player") then
         return
+    end
+    
+    -- Update Valorstones display
+    if addon.updateValorstones then
+        addon.updateValorstones()
     end
 
     if isCharacterTabSelected() then
@@ -621,22 +698,45 @@ f:RegisterEvent("PLAYER_LOGIN")
 f:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
 f:RegisterEvent("PLAYER_ENTERING_WORLD")
 f:RegisterEvent("CURRENCY_DISPLAY_UPDATE")
-f:RegisterEvent("BAG_UPDATE")
+-- BAG_UPDATE removed - not needed and causes excessive updates
+f:RegisterEvent("PLAYER_REGEN_DISABLED")  -- Entering combat
+f:RegisterEvent("PLAYER_REGEN_ENABLED")   -- Leaving combat
 
--- Throttle update calls
-local updateThrottled = false
+-- Enhanced throttling with proper debouncing
+local lastUpdateTime = 0
+local updatePending = false
+local UPDATE_THROTTLE = 0.2  -- Minimum time between updates
+
 local function ThrottledUpdate()
-    if not updateThrottled then
-        updateThrottled = true
-        if isCharacterTabSelected() then
-            UpdateDisplay()
+    local currentTime = GetTime()
+    
+    -- Don't update if we just updated recently
+    if currentTime - lastUpdateTime < UPDATE_THROTTLE then
+        if not updatePending then
+            updatePending = true
+            C_Timer.After(UPDATE_THROTTLE, function()
+                updatePending = false
+                if isCharacterTabSelected() then
+                    UpdateDisplay()
+                    lastUpdateTime = GetTime()
+                end
+            end)
         end
-        updateThrottled = false
+        return
+    end
+    
+    -- Update immediately if enough time has passed
+    if isCharacterTabSelected() then
+        UpdateDisplay()
+        lastUpdateTime = currentTime
     end
 end
 
--- Modified event handler with better initialization
-f:SetScript("OnEvent", function(_, event)
+-- Combat state tracking
+local inCombat = false
+
+-- Optimized event handler with combat state management
+f:SetScript("OnEvent", function(_, event, ...)
     if event == "PLAYER_ENTERING_WORLD" then
         -- Initialize saved variables first
         InitializeSavedVariables()
@@ -664,12 +764,44 @@ f:SetScript("OnEvent", function(_, event)
             UpdateDisplay()
         end
         UpdateFrameVisibility()
-    elseif event == "CURRENCY_DISPLAY_UPDATE" or
-        event == "BAG_UPDATE" then
-        ThrottledUpdate()
+    elseif event == "CURRENCY_DISPLAY_UPDATE" then
+        -- Only update if not in combat
+        if not inCombat then
+            ThrottledUpdate()
+        end
     elseif event == "PLAYER_EQUIPMENT_CHANGED" then
         CalculateUpgradedCrests()
+        -- Delay the display update to batch multiple equipment changes
+        C_Timer.After(0.3, ThrottledUpdate)
+    elseif event == "PLAYER_REGEN_DISABLED" then
+        inCombat = true
+        -- Hide frames during combat for performance
+        if masterFrame then
+            masterFrame:Hide()
+        end
+    elseif event == "PLAYER_REGEN_ENABLED" then
+        inCombat = false
+        -- Show and update after combat
+        if isCharacterTabSelected() then
+            if masterFrame then
+                masterFrame:Show()
+            end
+            ThrottledUpdate()
+        end
     end
+end)
+
+-- Optimize event registration based on character frame visibility
+CharacterFrame:HookScript("OnShow", function()
+    -- Re-register events when frame is shown
+    f:RegisterEvent("CURRENCY_DISPLAY_UPDATE")
+    f:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
+end)
+
+CharacterFrame:HookScript("OnHide", function()
+    -- Unregister expensive events when frame is hidden
+    f:UnregisterEvent("CURRENCY_DISPLAY_UPDATE")
+    -- Keep PLAYER_EQUIPMENT_CHANGED to track changes while hidden
 end)
 
 -- Function to force a currency update
@@ -718,12 +850,24 @@ SlashCmdList["FULLYUPGRADED"] = function(msg)
     arg = arg:upper()
 
     if cmd == "textpos" then
-        if TEXT_POSITIONS[arg] then
-            addon.UpdateTextPositions(arg)
-            print("|cFFFFFF00FullyUpgraded:|r Text position set to " .. arg)
+        -- Convert argument to uppercase for consistency
+        local position = arg and arg:upper() or ""
+        
+        -- Accept both old and new position names
+        if position == "TOP" or position == "T" or position == "TR" or position == "TL" then
+            addon.updateTextPositions("TOP")
+            print("|cFFFFFF00FullyUpgraded:|r Text position set to TOP")
+        elseif position == "BOTTOM" or position == "B" or position == "BR" or position == "BL" then
+            addon.updateTextPositions("BOTTOM")
+            print("|cFFFFFF00FullyUpgraded:|r Text position set to BOTTOM")
+        elseif position == "CENTER" or position == "C" then
+            addon.updateTextPositions("C")
+            print("|cFFFFFF00FullyUpgraded:|r Text position set to CENTER")
         else
-            print(
-                "|cFFFFFF00FullyUpgraded:|r Valid positions: TR (Top Right), TL (Top Left), BR (Bottom Right), BL (Bottom Left), C (Center)")
+            print("|cFFFFFF00FullyUpgraded:|r Valid positions:")
+            print("  TOP (or T) - Display at top of icon with background band")
+            print("  BOTTOM (or B) - Display at bottom of icon with background band")
+            print("  CENTER (or C) - Display in center of icon")
         end
     elseif cmd == "text" or cmd == "show" or cmd == "hide" then
         if cmd == "hide" then
@@ -745,6 +889,14 @@ SlashCmdList["FULLYUPGRADED"] = function(msg)
         ForceCurrencyUpdate()
     elseif cmd == "share" then
         shareUpgradeNeeds()
+    elseif cmd == "colors" then
+        print("|cFFFFFF00FullyUpgraded Track Colors:|r")
+        for trackName, colorCode in pairs(addon.TRACK_COLORS) do
+            print(string.format("  %s: |cFF%s%s|r", trackName, colorCode, trackName))
+        end
+    elseif cmd == "bg" or cmd == "background" then
+        print("|cFFFFFF00FullyUpgraded:|r Dark backgrounds are now shown behind upgrade text for better visibility")
+        print("  Background covers the entire gear slot when upgrade text is displayed")
     elseif cmd == "debug" then
         addon.debugMode = not addon.debugMode
         print("|cFFFFFF00FullyUpgraded:|r Debug mode " .. (addon.debugMode and "enabled" or "disabled"))
@@ -753,11 +905,13 @@ SlashCmdList["FULLYUPGRADED"] = function(msg)
         end
     else
         print("|cFFFFFF00FullyUpgraded commands:|r")
-        print("  /fu textpos <position> - Set text position (TR/TL/BR/BL/C)")
+        print("  /fu textpos <position> - Set text position (TOP/BOTTOM/CENTER)")
         print("  /fu show - Show upgrade text")
         print("  /fu hide - Hide upgrade text")
         print("  /fu text - Toggle upgrade text visibility")
         print("  /fu share - Share upgrade needs in chat")
+        print("  /fu colors - Display color preview for all track types")
+        print("  /fu bg - Information about text backgrounds")
         print("  /fu refresh - Manually refresh upgrade information")
         print("  /fu currency - Manually refresh currency information")
         print("  /fu debug - Toggle debug mode")

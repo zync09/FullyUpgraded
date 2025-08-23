@@ -80,11 +80,16 @@ local function CreateOptionsFrame(parent)
 
     local function Initialize(self, level)
         local info = UIDropDownMenu_CreateInfo()
-        local positions = { "TR", "TL", "BR", "BL", "C" }
+        -- Simplified position options
+        local positions = {
+            { value = "TOP", text = "Top" },
+            { value = "BOTTOM", text = "Bottom" },
+            { value = "C", text = "Center" }
+        }
 
         for _, pos in ipairs(positions) do
-            info.text = pos
-            info.value = pos
+            info.text = pos.text
+            info.value = pos.value
             info.func = OnClick
             info.notCheckable = true
             UIDropDownMenu_AddButton(info, level)
@@ -94,8 +99,8 @@ local function CreateOptionsFrame(parent)
     -- Initialize the dropdown
     UIDropDownMenu_Initialize(dropdown, Initialize)
     UIDropDownMenu_SetWidth(dropdown, 65)
-    UIDropDownMenu_SetSelectedValue(dropdown, "TR")
-    UIDropDownMenu_SetText(dropdown, "TR")
+    UIDropDownMenu_SetSelectedValue(dropdown, "TOP")
+    UIDropDownMenu_SetText(dropdown, "Top")
 
     -- Style the dropdown
     local dropdownButton = _G[dropdown:GetName() .. "Button"]

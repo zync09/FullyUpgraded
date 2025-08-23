@@ -53,28 +53,23 @@ local function CreateCrestDisplay(parent)
 end
 
 -- Position a single crest display
-local function PositionCrestDisplay(display, parent, index, totalDisplays)
+local function PositionCrestDisplay(display, parent, index)
     if not display then return end
 
-    local spacing = 1          -- Spacing between currency displays
-    local baseHeight = 16      -- Reduced height of each currency display
+    local spacing = 2          -- Spacing between currency displays
+    local baseHeight = 16      -- Height of each currency display
     local containerWidth = 230 -- Match container width from CreateCrestDisplay
 
     -- Position the container vertically with consistent spacing
     display.container:ClearAllPoints()
     if index == 1 then
-        display.container:SetPoint("TOP", parent, "TOP", 0, -1)
+        display.container:SetPoint("TOP", parent, "TOP", 0, -spacing)
     else
-        display.container:SetPoint("TOP", parent, "TOP", 0, -((index - 1) * (baseHeight + spacing)) - 1)
+        display.container:SetPoint("TOP", parent, "TOP", 0, -((index - 1) * (baseHeight + spacing)) - spacing)
     end
 
     -- Set container width
     display.container:SetWidth(containerWidth)
-
-    -- Update parent frame height based on total displays
-    local totalHeight = (totalDisplays * baseHeight) + ((totalDisplays - 1) * spacing) + 2
-    parent:SetHeight(totalHeight)
-    parent:SetWidth(containerWidth)
 
     -- Show all elements
     display.container:Show()
@@ -83,6 +78,25 @@ local function PositionCrestDisplay(display, parent, index, totalDisplays)
     display.icon:Show()
     display.count:Show()
     display.runsNeeded:Show()
+end
+
+-- Update the frame size based on total displays
+local function UpdateFrameSize(frame, displayCount)
+    local spacing = 2
+    local baseHeight = 16
+    local padding = 4  -- Padding at top and bottom
+    
+    -- Calculate total height needed
+    local totalHeight = (displayCount * baseHeight) + ((displayCount - 1) * spacing) + (padding * 2)
+    
+    -- Update the frame size
+    frame:SetHeight(totalHeight)
+    frame:SetWidth(230)
+    
+    -- Trigger master frame size update if available
+    if frame:GetParent() and frame:GetParent().updateFrameSize then
+        frame:GetParent():updateFrameSize()
+    end
 end
 
 -- Update a single crest display
@@ -297,7 +311,7 @@ local function updateCrestCurrency(parent)
         if display.runsNeeded then display.runsNeeded:Hide() end
     end
 
-    -- Count how many displays we'll have
+    -- Count how many displays we'll have (crests only, Valorstones moved to header)
     local displayCount = 0
     for _, crestType in ipairs(CREST_ORDER) do
         local crestData = CURRENCY.CRESTS[crestType]
@@ -323,13 +337,16 @@ local function updateCrestCurrency(parent)
                 local display = frame.displays[crestType]
                 if display then
                     UpdateCrestDisplay(display, info, crestData)
-                    PositionCrestDisplay(display, frame, index, displayCount)
+                    PositionCrestDisplay(display, frame, index)
                     index = index + 1
                 end
             end
         end
     end
 
+    -- Update frame size based on actual content
+    UpdateFrameSize(frame, index - 1)  -- index - 1 gives us the actual count of displayed items
+    
     -- Update frame visibility
     if addon.isCharacterTabSelected() then
         frame:Show()
@@ -344,6 +361,9 @@ local function SetupEventHandlers()
     CharacterFrame:HookScript("OnShow", function()
         if addon.isCharacterTabSelected() then
             updateCrestCurrency(_G["GearUpgradeCurrencyFrame"]) -- Use the global frame
+            if addon.updateValorstones then
+                addon.updateValorstones()
+            end
         end
     end)
 
@@ -353,6 +373,9 @@ local function SetupEventHandlers()
     currencyEventFrame:SetScript("OnEvent", function()
         if addon.isCharacterTabSelected() then
             updateCrestCurrency(_G["GearUpgradeCurrencyFrame"]) -- Use the global frame
+            if addon.updateValorstones then
+                addon.updateValorstones()
+            end
         end
     end)
 

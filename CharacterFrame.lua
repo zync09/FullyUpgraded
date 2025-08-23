@@ -8,11 +8,11 @@ local UPGRADE_TRACKS = addon.UPGRADE_TRACKS
 -- Local references to shared functions and data
 addon.upgradeTextPool = {}  -- Make upgradeTextPool accessible to the main file
 local upgradeTextPool = addon.upgradeTextPool
-local currentTextPos = "TR" -- Default position
+local currentTextPos = "TR" -- Default position - top right with background
 
--- Font settings from constants
+-- Font settings from constants (reduced by 15% from original, was 25%)
 local fontFile = GameFontNormal:GetFont()
-local fontSize = addon.FONT_SIZE
+local fontSize = math.floor(addon.FONT_SIZE * 0.85) -- 15% smaller font (10% larger than previous 0.75)
 local fontFlags = addon.FONT_FLAGS
 
 local function debugPrint(message)
@@ -42,13 +42,47 @@ local function hideTooltip()
     GameTooltip:Hide()
 end
 
+-- **Update background strip to match text size**
+local function updateBackgroundStrip(button)
+    if not button or not button.text or not button.background then return end
+    
+    -- Get text dimensions for height
+    local textHeight = button.text:GetStringHeight()
+    
+    if textHeight > 0 then
+        -- Get gear icon width for full-width background (minus 2 pixels total, 1 on each side)
+        local gearWidth = button.slotFrame:GetWidth() - 2
+        local padding = addon.TEXT_BACKGROUND.padding or 2
+        local stripHeight = textHeight + (padding * 2)
+        
+        -- Size the background to span gear width minus insets
+        button.background:SetSize(gearWidth, stripHeight)
+        
+        -- Position background to match the button position
+        button.background:ClearAllPoints()
+        button.background:SetAllPoints(button)
+        
+        -- Size the button to match the background strip so tooltip only shows over the strip
+        button:SetSize(gearWidth, stripHeight)
+        button:ClearAllPoints()
+        
+        -- Consistently anchor to top-left corner: 1 pixel from left, 1 pixel from top
+        button:SetPoint("TOPLEFT", button.slotFrame, "TOPLEFT", 1, -1)
+    end
+end
+
 -- **Creates Upgrade Text for a Slot**
 local function CreateUpgradeText(slot)
     local slotFrame = _G["Character" .. slot]
     if not slotFrame then return nil end
 
     local button = CreateFrame("Button", nil, slotFrame)
-    button:SetSize(30, 20)
+    -- Button will be sized to match the text strip area, not the full gear slot
+
+    -- Create semi-transparent background strip for better text visibility
+    local background = button:CreateTexture(nil, "BACKGROUND")
+    background:SetColorTexture(0, 0, 0, 0.28) -- 50% transparent white
+    background:Hide() -- Hidden by default, shown when text is displayed
 
     local text = button:CreateFontString(nil, "OVERLAY")
     text:SetFont(fontFile, fontSize, fontFlags)
@@ -59,14 +93,15 @@ local function CreateUpgradeText(slot)
     button:SetFrameLevel(slotFrame:GetFrameLevel() + 1)
 
     button.text = text
+    button.background = background
     button.slot = slot
     button.slotFrame = slotFrame
 
-    local posData = TEXT_POSITIONS[currentTextPos]
-    button:ClearAllPoints()
-    button:SetPoint(posData.point, slotFrame, posData.point, posData.x, posData.y)
+    -- Make text span full button width and align to the right
     text:ClearAllPoints()
-    text:SetPoint("CENTER", button, "CENTER", 0, 0)
+    text:SetPoint("LEFT", button, "LEFT", 2, 0)
+    text:SetPoint("RIGHT", button, "RIGHT", -2, 0)
+    text:SetJustifyH("RIGHT")  -- Ensure right alignment
 
     -- Set initial visibility based on saved setting
     if FullyUpgradedDB and FullyUpgradedDB.textVisible ~= nil then
@@ -107,6 +142,9 @@ local function cleanupUpgradeTexts()
         if button then
             if button:IsVisible() then
                 button:Hide()
+                if button.background then
+                    button.background:Hide()
+                end
             end
         end
     end
@@ -114,7 +152,12 @@ end
 
 -- Process a Season 1 item
 local function processSeason1Item(button)
-    button.text:SetText(string.format("|cFF%02x%02x%02xS1|r", 240, 100, 50))
+    local color = addon.TRACK_COLORS.SEASON1
+    button.text:SetText(string.format("|cFF%sS1|r", color))
+    
+    -- Update background strip to match text size
+    updateBackgroundStrip(button)
+    button.background:Show() -- Show background for better visibility
     button:Show()
 
     -- Store tooltip data
@@ -131,8 +174,15 @@ local function processUpgradeableItem(button, track, trackName, currentNum, maxN
 
     local trackUpper = trackName:upper()
     local trackLetter = trackUpper:sub(1, 1)
-
-    button.text:SetText("|cFFffffff+" .. levelsToUpgrade .. trackLetter .. "|r")
+    
+    -- Get color for this track type, fallback to white if not found
+    local color = addon.TRACK_COLORS[trackUpper] or "ffffff"
+    
+    button.text:SetText(string.format("|cFF%s+%d%s|r", color, levelsToUpgrade, trackLetter))
+    
+    -- Update background strip to match text size
+    updateBackgroundStrip(button)
+    button.background:Show() -- Show background for better visibility
     button:Show()
 
     -- Calculate and store tooltip data
@@ -186,8 +236,16 @@ end
 
 -- Process a fully upgraded item
 local function processFullyUpgradedItem(button, trackName, currentNum, maxNum)
-    local trackLetter = trackName:upper():sub(1, 1)
-    button.text:SetText("|cFFffffff" .. trackLetter .. "|r")
+    local trackUpper = trackName:upper()
+    local trackLetter = trackUpper:sub(1, 1)
+    
+    -- Use gold color for fully upgraded items
+    local color = addon.TRACK_COLORS.FULLY_UPGRADED
+    button.text:SetText(string.format("|cFF%s%s|r", color, trackLetter))
+    
+    -- Update background strip to match text size
+    updateBackgroundStrip(button)
+    button.background:Show() -- Show background for better visibility
     button:Show()
 
     -- Store tooltip data
@@ -201,10 +259,16 @@ end
 
 -- Process equipment slot
 local function processEquipmentSlot(slot, button)
-    button:ClearAllPoints()
-    local posData = TEXT_POSITIONS[currentTextPos]
-    button:SetPoint(posData.point, button.slotFrame, posData.point, posData.x, posData.y)
+    -- Make text span full button width and align to the right
+    button.text:ClearAllPoints()
+    button.text:SetPoint("LEFT", button, "LEFT", 2, 0)
+    button.text:SetPoint("RIGHT", button, "RIGHT", -2, 0)
+    button.text:SetJustifyH("RIGHT")
+    
     button.text:SetText("")
+    if button.background then
+        button.background:Hide() -- Hide background by default
+    end
 
     -- Ensure tooltip handlers are set
     button:SetScript("OnEnter", function(self)
@@ -273,6 +337,9 @@ local function processEquipmentSlot(slot, button)
 
     if not shouldShow or (FullyUpgradedDB and not FullyUpgradedDB.textVisible) then
         button:Hide()
+        if button.background then
+            button.background:Hide()
+        end
     end
 end
 
@@ -313,12 +380,20 @@ local function updateTextPositions(position)
     if not TEXT_POSITIONS[position] then return end
 
     currentTextPos = position
-    local posData = TEXT_POSITIONS[position]
 
     for slot, button in pairs(upgradeTextPool) do
         if button and button.slotFrame then
-            button:ClearAllPoints()
-            button:SetPoint(posData.point, button.slotFrame, posData.point, posData.x, posData.y)
+            -- Make text span full button width and align to the right
+            button.text:ClearAllPoints()
+            button.text:SetPoint("LEFT", button, "LEFT", 2, 0)
+            button.text:SetPoint("RIGHT", button, "RIGHT", -2, 0)
+            button.text:SetJustifyH("RIGHT")
+            
+            -- Update background strip position if text is visible
+            if button.text:GetText() and button.text:GetText() ~= "" then
+                updateBackgroundStrip(button)
+            end
+            
             processEquipmentSlot(slot, button)
         end
     end
@@ -333,6 +408,9 @@ local function setTextVisibility(show)
             else
                 button:Hide()
                 button.text:SetText("")
+                if button.background then
+                    button.background:Hide()
+                end
             end
         end
     end
@@ -372,20 +450,34 @@ local function setupCharacterFrameHooks()
         CharacterFrame:HookScript("OnHide", cleanupUpgradeTexts)
     end
 
-    -- Hook equipment updates with throttling
-    local updateThrottled = false
+    -- Optimized equipment update hook with proper debouncing
+    local updatePending = false
+    local lastUpdateTime = 0
+    local UPDATE_DEBOUNCE = 0.3  -- Wait 300ms to batch multiple updates
+    
     if PaperDollItemSlotButton_Update then
         hooksecurefunc("PaperDollItemSlotButton_Update", function(button)
-            if button and addon.isCharacterTabSelected() and upgradeTextPool[button:GetName():gsub("Character", "")] then
-                if not updateThrottled then
-                    updateThrottled = true
-                    C_Timer.After(addon.UPDATE_THROTTLE_TIME, function()
-                        if addon.isCharacterTabSelected() then
-                            doUpdate()
-                        end
-                        updateThrottled = false
-                    end)
-                end
+            -- Early exit if not needed
+            if not button or not addon.isCharacterTabSelected() then return end
+            if not upgradeTextPool[button:GetName():gsub("Character", "")] then return end
+            
+            local currentTime = GetTime()
+            
+            -- If we updated very recently, skip this update
+            if currentTime - lastUpdateTime < 0.5 then
+                return
+            end
+            
+            -- Batch multiple rapid updates
+            if not updatePending then
+                updatePending = true
+                C_Timer.After(UPDATE_DEBOUNCE, function()
+                    if addon.isCharacterTabSelected() then
+                        doUpdate()
+                        lastUpdateTime = GetTime()
+                    end
+                    updatePending = false
+                end)
             end
         end)
     end

@@ -4,10 +4,12 @@ local addonName, addon = ...
 addon.CRESTS_TO_UPGRADE = 15
 addon.CRESTS_CONVERSION_UP = 45
 
--- Cache settings
-addon.CACHE_TIMEOUT = 1                -- Cache timeout in seconds
+-- Cache settings (optimized for performance)
+addon.CACHE_TIMEOUT = 3                -- Cache timeout in seconds (increased for better performance)
 addon.MAX_CACHE_ENTRIES = 50           -- Maximum number of entries in caches
-addon.TOOLTIP_CACHE_TTL = 1            -- Tooltip cache time-to-live in seconds
+addon.TOOLTIP_CACHE_TTL = 5            -- Tooltip cache time-to-live in seconds (tooltips rarely change)
+addon.ITEM_INFO_CACHE_TTL = 10         -- Item info cache TTL (item data is very stable)
+addon.CURRENCY_CACHE_TTL = 2           -- Currency cache TTL (balance between freshness and performance)
 
 -- UI settings
 addon.FONT_SIZE = 12
@@ -19,10 +21,11 @@ addon.MASTER_FRAME_MIN_WIDTH = 230
 addon.CURRENCY_FRAME_HEIGHT = 20
 addon.CURRENCY_FRAME_WIDTH = 140
 
--- Timing settings
-addon.UPDATE_THROTTLE_TIME = 0.1       -- Throttle time for updates
-addon.DELAYED_SIZE_UPDATE_TIME = 0.1   -- Delay for size updates
-addon.POSITION_RECALC_TIME = 0.05      -- Position recalculation delay
+-- Timing settings (optimized for performance)
+addon.UPDATE_THROTTLE_TIME = 0.2       -- Throttle time for updates (increased to reduce update frequency)
+addon.DELAYED_SIZE_UPDATE_TIME = 0.15  -- Delay for size updates (slightly increased for batching)
+addon.POSITION_RECALC_TIME = 0.1       -- Position recalculation delay (increased to reduce recalcs)
+addon.CACHE_CLEANUP_INTERVAL = 30      -- Only clean caches every 30 seconds
 
 -- Display settings
 addon.CURRENCY_SPACING = 6             -- Spacing between currency groups
@@ -31,6 +34,28 @@ addon.SEPARATOR_WIDTH = 2              -- Width of separator between currencies
 
 -- Debug mode (shared across all files)
 addon.debugMode = false
+
+-- Color constants for upgrade tracks
+addon.TRACK_COLORS = {
+    -- Standard WoW quality colors + custom track colors
+    EXPLORER = "9d9d9d",      -- Grey (like poor quality items)
+    ADVENTURER = "ffffff",    -- White (like common quality items)  
+    VETERAN = "1eff00",       -- Green (like uncommon quality items)
+    CHAMPION = "0070dd",      -- Blue (like rare quality items)
+    HERO = "a335ee",          -- Purple (like epic quality items)
+    MYTH = "ff8000",          -- Orange (like legendary quality items)
+    
+    -- Special cases
+    SEASON1 = "ff6600",       -- Orange-red for old season items
+    FULLY_UPGRADED = "ffd700", -- Gold for completed items
+}
+
+-- Text background settings
+addon.TEXT_BACKGROUND = {
+    enabled = false,          -- Whether to show background by default
+    color = { 0, 0, 0, 0.8 }, -- Black with 80% transparency
+    padding = 2,              -- Pixels of padding around text
+}
 
 -- Season item level ranges
 addon.SEASONS = {
@@ -173,7 +198,17 @@ addon.CURRENCY = {
             }
         end
         return crests
-    end)()
+    end)(),
+    -- Add Valorstones currency
+    VALORSTONES = {
+        currencyID = 3008,
+        name = "Valorstones",
+        shortname = "Valor",
+        reallyshortname = "V",
+        color = "00ff00",  -- Green color for valorstones
+        current = 0,
+        needed = 0
+    }
 }
 
 -- Crest rewards with base values and increments
@@ -229,13 +264,20 @@ addon.CREST_REWARDS = (function()
     return rewards
 end)()
 
--- Text position definitions
+-- Text position definitions (simplified to TOP/BOTTOM)
 addon.TEXT_POSITIONS = {
-    TR = { point = "TOPRIGHT", x = 6, y = 2 },
-    TL = { point = "TOPLEFT", x = -6, y = 2 },
-    BR = { point = "BOTTOMRIGHT", x = 6, y = -2 },
-    BL = { point = "BOTTOMLEFT", x = -6, y = -2 },
-    C = { point = "CENTER", x = 0, y = 0 },
+    -- Primary positions with the background band
+    TOP = { point = "TOP", x = 0, y = -3 },         -- Top of icon with band
+    BOTTOM = { point = "BOTTOM", x = 0, y = 3 },    -- Bottom of icon with band
+    
+    -- Legacy positions (mapped to new positions for compatibility)
+    TR = { point = "TOP", x = 0, y = -3 },          -- Maps to TOP
+    TL = { point = "TOP", x = 0, y = -3 },          -- Maps to TOP
+    BR = { point = "BOTTOM", x = 0, y = 3 },        -- Maps to BOTTOM
+    BL = { point = "BOTTOM", x = 0, y = 3 },        -- Maps to BOTTOM
+    C = { point = "CENTER", x = 0, y = 0 },         -- Center (kept for compatibility)
+    
+    -- External positions (removed - no longer supported)
 }
 
 -- Upgrade track definitions based on crest data
