@@ -389,13 +389,15 @@ local function SetUpgradeTooltip(self, tooltipInfo)
 
                 if CURRENCY.CRESTS[req.crestType] and CURRENCY.CRESTS[req.crestType].currencyID then
                     local currencyID = CURRENCY.CRESTS[req.crestType].currencyID
-                    local iconFileID = C_CurrencyInfo.GetCurrencyInfo(currencyID).iconFileID
-                    local iconText = CreateTextureMarkup(iconFileID, 64, 64, 16, 16, 0, 1, 0, 1)
-                    GameTooltip:AddLine(string.format("%s %d x |cFF%s%s Undermine Crest%s|r",
+                    local currencyInfo = C_CurrencyInfo.GetCurrencyInfo(currencyID)
+                    local iconText = CreateTextureMarkup(currencyInfo.iconFileID, 64, 64, 16, 16, 0, 1, 0, 1)
+                    -- Use the actual currency name from the API
+                    local currencyName = currencyInfo.name or (baseData.baseName .. " Crest")
+                    GameTooltip:AddLine(string.format("%s %d x |cFF%s%s%s|r",
                         iconText,
                         req.count,
                         baseData.color,
-                        baseData.baseName,
+                        currencyName,
                         mythicText))
                 end
             end
@@ -407,13 +409,15 @@ local function SetUpgradeTooltip(self, tooltipInfo)
 
                 if CURRENCY.CRESTS[req.crestType] and CURRENCY.CRESTS[req.crestType].currencyID then
                     local currencyID = CURRENCY.CRESTS[req.crestType].currencyID
-                    local iconFileID = C_CurrencyInfo.GetCurrencyInfo(currencyID).iconFileID
-                    local iconText = CreateTextureMarkup(iconFileID, 64, 64, 16, 16, 0, 1, 0, 1)
-                    GameTooltip:AddLine(string.format("%s %d x |cFF%s%s Undermine Crest%s|r",
+                    local currencyInfo = C_CurrencyInfo.GetCurrencyInfo(currencyID)
+                    local iconText = CreateTextureMarkup(currencyInfo.iconFileID, 64, 64, 16, 16, 0, 1, 0, 1)
+                    -- Use the actual currency name from the API
+                    local currencyName = currencyInfo.name or (baseData.baseName .. " Crest")
+                    GameTooltip:AddLine(string.format("%s %d x |cFF%s%s%s|r",
                         iconText,
                         req.count,
                         baseData.color,
-                        baseData.baseName,
+                        currencyName,
                         mythicText))
                 end
             end
@@ -424,13 +428,15 @@ local function SetUpgradeTooltip(self, tooltipInfo)
 
             if CURRENCY.CRESTS[req.crestType] and CURRENCY.CRESTS[req.crestType].currencyID then
                 local currencyID = CURRENCY.CRESTS[req.crestType].currencyID
-                local iconFileID = C_CurrencyInfo.GetCurrencyInfo(currencyID).iconFileID
-                local iconText = CreateTextureMarkup(iconFileID, 64, 64, 16, 16, 0, 1, 0, 1)
-                GameTooltip:AddLine(string.format("%s %d x |cFF%s%s Undermine Crest%s|r",
+                local currencyInfo = C_CurrencyInfo.GetCurrencyInfo(currencyID)
+                local iconText = CreateTextureMarkup(currencyInfo.iconFileID, 64, 64, 16, 16, 0, 1, 0, 1)
+                -- Use the actual currency name from the API
+                local currencyName = currencyInfo.name or (baseData.baseName .. " Crest")
+                GameTooltip:AddLine(string.format("%s %d x |cFF%s%s%s|r",
                     iconText,
                     req.count,
                     baseData.color,
-                    baseData.baseName,
+                    currencyName,
                     mythicText))
             end
         end
