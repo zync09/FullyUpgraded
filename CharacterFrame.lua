@@ -24,25 +24,11 @@ end
 -- Tooltip state management
 local tooltipData = {}
 
--- Simple tooltip handling
-local function showTooltip(button, tooltipFunc)
-    if not button:IsVisible() or not addon.isCharacterTabSelected() then return end
+-- Use unified tooltip system from addon namespace
+local showTooltip = addon.showTooltip
+local hideTooltip = addon.hideTooltip
 
-    GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
-    GameTooltip:ClearLines()
-
-    if tooltipFunc then
-        tooltipFunc(button)
-    end
-
-    GameTooltip:Show()
-end
-
-local function hideTooltip()
-    GameTooltip:Hide()
-end
-
--- **Update background strip to match text size**
+-- **Update background strip to match text size and position**
 local function updateBackgroundStrip(button)
     if not button or not button.text or not button.background then return end
     
@@ -66,8 +52,23 @@ local function updateBackgroundStrip(button)
         button:SetSize(gearWidth, stripHeight)
         button:ClearAllPoints()
         
-        -- Consistently anchor to top-left corner: 1 pixel from left, 1 pixel from top
-        button:SetPoint("TOPLEFT", button.slotFrame, "TOPLEFT", 1, -1)
+        -- Position button based on current text position setting
+        local positionData = TEXT_POSITIONS[currentTextPos]
+        if positionData then
+            if positionData.point == "TOP" then
+                button:SetPoint("TOP", button.slotFrame, "TOP", 0, -1)
+            elseif positionData.point == "BOTTOM" then
+                button:SetPoint("BOTTOM", button.slotFrame, "BOTTOM", 0, 1)
+            elseif positionData.point == "CENTER" then
+                button:SetPoint("CENTER", button.slotFrame, "CENTER", 0, 0)
+            else
+                -- Fallback to top for legacy positions
+                button:SetPoint("TOP", button.slotFrame, "TOP", 0, -1)
+            end
+        else
+            -- Default to top
+            button:SetPoint("TOP", button.slotFrame, "TOP", 0, -1)
+        end
     end
 end
 
@@ -110,11 +111,9 @@ local function CreateUpgradeText(slot)
         end
     end
 
-    -- Set up tooltip handling
+    -- Set up tooltip handling using unified system
     button:SetScript("OnEnter", function(self)
-        showTooltip(self, function(button)
-            addon.setUpgradeTooltip(button, tooltipData[button.slot])
-        end)
+        showTooltip(self, "ANCHOR_RIGHT", addon.tooltipProviders.upgrade, tooltipData[self.slot])
     end)
 
     button:SetScript("OnLeave", hideTooltip)
@@ -270,11 +269,9 @@ local function processEquipmentSlot(slot, button)
         button.background:Hide() -- Hide background by default
     end
 
-    -- Ensure tooltip handlers are set
+    -- Ensure tooltip handlers are set using unified system
     button:SetScript("OnEnter", function(self)
-        showTooltip(self, function(button)
-            addon.setUpgradeTooltip(button, tooltipData[button.slot])
-        end)
+        showTooltip(self, "ANCHOR_RIGHT", addon.tooltipProviders.upgrade, tooltipData[self.slot])
     end)
     button:SetScript("OnLeave", hideTooltip)
 
@@ -353,12 +350,20 @@ local function updateAllUpgradeTexts()
     -- Ensure saved variables are loaded
     if not FullyUpgradedDB then
         FullyUpgradedDB = {
-            textPosition = "TR",
+            textPosition = "TOP",  -- Changed default to TOP
             textVisible = true
         }
     end
     if FullyUpgradedDB.textVisible == nil then
         FullyUpgradedDB.textVisible = true
+    end
+    
+    -- Load saved text position
+    if FullyUpgradedDB.textPosition and TEXT_POSITIONS[FullyUpgradedDB.textPosition] then
+        currentTextPos = FullyUpgradedDB.textPosition
+    else
+        currentTextPos = "TOP"  -- Default to TOP
+        FullyUpgradedDB.textPosition = "TOP"
     end
 
     -- Reset needed counts
@@ -380,6 +385,11 @@ local function updateTextPositions(position)
     if not TEXT_POSITIONS[position] then return end
 
     currentTextPos = position
+    
+    -- Save the position to the database
+    if FullyUpgradedDB then
+        FullyUpgradedDB.textPosition = position
+    end
 
     for slot, button in pairs(upgradeTextPool) do
         if button and button.slotFrame then
@@ -389,11 +399,27 @@ local function updateTextPositions(position)
             button.text:SetPoint("RIGHT", button, "RIGHT", -2, 0)
             button.text:SetJustifyH("RIGHT")
             
-            -- Update background strip position if text is visible
+            -- Update background strip and button position
             if button.text:GetText() and button.text:GetText() ~= "" then
                 updateBackgroundStrip(button)
+            else
+                -- Even if no text, position the button correctly for when text appears
+                button:ClearAllPoints()
+                local positionData = TEXT_POSITIONS[currentTextPos]
+                if positionData then
+                    if positionData.point == "TOP" then
+                        button:SetPoint("TOP", button.slotFrame, "TOP", 0, -1)
+                    elseif positionData.point == "BOTTOM" then
+                        button:SetPoint("BOTTOM", button.slotFrame, "BOTTOM", 0, 1)
+                    elseif positionData.point == "CENTER" then
+                        button:SetPoint("CENTER", button.slotFrame, "CENTER", 0, 0)
+                    else
+                        button:SetPoint("TOP", button.slotFrame, "TOP", 0, -1)
+                    end
+                end
             end
             
+            -- Force refresh the slot to show the new position
             processEquipmentSlot(slot, button)
         end
     end
@@ -419,24 +445,9 @@ end
 -- Setup character frame hooks
 local function setupCharacterFrameHooks()
     local function doUpdate()
-        if addon.isCharacterTabSelected() then
-            -- Debug: Check if functions exist before calling
-            if not addon.checkCurrencyForAllCrests then
-                print("[FullyUpgraded] ERROR: checkCurrencyForAllCrests not found in addon namespace")
-                return
-            end
-            if not addon.calculateUpgradedCrests then
-                print("[FullyUpgraded] ERROR: calculateUpgradedCrests not found in addon namespace")
-                return
-            end
-            if not addon.updateAllUpgradeTexts then
-                print("[FullyUpgraded] ERROR: updateAllUpgradeTexts not found in addon namespace")
-                return
-            end
-            
-            addon.checkCurrencyForAllCrests()
-            addon.calculateUpgradedCrests()
-            addon.updateAllUpgradeTexts()
+        -- Use the main coordinated update system
+        if addon.updateDisplay then
+            addon.updateDisplay()
         end
     end
 

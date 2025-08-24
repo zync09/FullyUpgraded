@@ -148,32 +148,19 @@ valorText:SetPoint("RIGHT", valorIcon, "LEFT", -3, 0)
 valorText:SetTextColor(0, 1, 0) -- Green for Valorstones
 valorText:SetFont(valorText:GetFont(), 11)
 
--- Make Valorstones frame interactive for tooltip
+-- Make Valorstones frame interactive for tooltip using unified system
 valorFrame:EnableMouse(true)
 valorFrame:SetScript("OnEnter", function(self)
     local valorData = addon.CURRENCY.VALORSTONES
     if valorData and valorData.currencyID then
         local info = C_CurrencyInfo.GetCurrencyInfo(valorData.currencyID)
         if info then
-            GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-            GameTooltip:AddLine(info.name)
-            GameTooltip:AddLine("Current: " .. (info.quantity or 0), 1, 1, 1)
-            GameTooltip:AddLine("Maximum: 2000", 1, 1, 1)
-            GameTooltip:AddLine(" ")
-            GameTooltip:AddLine("Sources:", 0.9, 0.7, 0)
-            GameTooltip:AddLine("• Quests, Raids, Dungeons", 0.8, 0.8, 0.8)
-            GameTooltip:AddLine("• Battlegrounds, Arena", 0.8, 0.8, 0.8)
-            GameTooltip:AddLine("• Delves, World Activities", 0.8, 0.8, 0.8)
-            GameTooltip:AddLine(" ")
-            GameTooltip:AddLine("Used to upgrade all max-level gear", 0.8, 0.8, 0.8)
-            GameTooltip:Show()
+            showTooltip(self, "ANCHOR_LEFT", tooltipProviders.valorstones, info)
         end
     end
 end)
 
-valorFrame:SetScript("OnLeave", function()
-    GameTooltip:Hide()
-end)
+valorFrame:SetScript("OnLeave", hideTooltip)
 
 -- Function to update Valorstones display
 local function updateValorstones()
@@ -442,10 +429,16 @@ local function UpdateDisplay()
             calculationsChanged = CalculateUpgradedCrests()
         end
 
-        -- Update the display only if something changed
+        -- Update displays in coordinated fashion
         if currencyChanged or calculationsChanged then
+            -- Update upgrade texts on equipment
             if addon.updateAllUpgradeTexts then
                 addon.updateAllUpgradeTexts()
+            end
+            
+            -- Update currency display panel
+            if addon.updateCrestCurrency and _G["GearUpgradeCurrencyFrame"] then
+                addon.updateCrestCurrency(_G["GearUpgradeCurrencyFrame"])
             end
         end
 
@@ -457,32 +450,91 @@ local function UpdateDisplay()
 end
 
 -- **Tooltip Setup for Crest Costs**
-local function SetUpgradeTooltip(self, tooltipInfo)
-    if not tooltipInfo then return end
+-- **UNIFIED TOOLTIP SYSTEM**
+-- Centralized tooltip management for all addon components
 
-    if tooltipInfo.type == "season1" then
-        GameTooltip:AddLine("Season 1 Item")
-        GameTooltip:AddLine("This item can no longer be upgraded", 1, 0.2, 0.2)
-        return
+local function showTooltip(owner, anchorPoint, contentProvider, data)
+    -- Validate inputs
+    if not owner or not owner:IsVisible() then return end
+    if not addon.isCharacterTabSelected() then return end
+    
+    -- Set up tooltip
+    GameTooltip:SetOwner(owner, anchorPoint or "ANCHOR_RIGHT")
+    GameTooltip:ClearLines()
+    
+    -- Call content provider to populate tooltip
+    if contentProvider and type(contentProvider) == "function" then
+        contentProvider(data)
     end
+    
+    GameTooltip:Show()
+end
 
-    if tooltipInfo.type == "fullyUpgraded" then
-        GameTooltip:AddLine("Fully Upgraded")
-        GameTooltip:AddLine(string.format("%s Track %d/%d",
-                tooltipInfo.trackName,
-                tooltipInfo.currentNum,
-                tooltipInfo.maxNum),
-            1, 1, 1)
-        return
-    end
+local function hideTooltip()
+    GameTooltip:Hide()
+end
 
-    if tooltipInfo.type == "upgradeable" then
-        GameTooltip:AddLine("Upgrade Requirements:")
+-- Content providers for different tooltip types
+local tooltipProviders = {
+    upgrade = function(tooltipInfo)
+        if not tooltipInfo then return end
 
-        -- Handle split upgrade requirements
-        if tooltipInfo.requirements.firstTier or tooltipInfo.requirements.secondTier then
-            if tooltipInfo.requirements.firstTier then
-                local req = tooltipInfo.requirements.firstTier
+        if tooltipInfo.type == "season1" then
+            GameTooltip:AddLine("Season 1 Item")
+            GameTooltip:AddLine("This item can no longer be upgraded", 1, 0.2, 0.2)
+            return
+        end
+
+        if tooltipInfo.type == "fullyUpgraded" then
+            GameTooltip:AddLine("Fully Upgraded")
+            GameTooltip:AddLine(string.format("%s Track %d/%d",
+                    tooltipInfo.trackName,
+                    tooltipInfo.currentNum,
+                    tooltipInfo.maxNum),
+                1, 1, 1)
+            return
+        end
+
+        if tooltipInfo.type == "upgradeable" then
+            GameTooltip:AddLine("Upgrade Requirements:")
+
+            -- Handle split upgrade requirements
+            if tooltipInfo.requirements.firstTier or tooltipInfo.requirements.secondTier then
+                if tooltipInfo.requirements.firstTier then
+                    local req = tooltipInfo.requirements.firstTier
+                    local baseData = addon.CREST_BASE[req.crestType]
+                    local mythicText = req.mythicLevel > 0 and string.format(" (M%d+)", req.mythicLevel) or ""
+
+                    if CURRENCY.CRESTS[req.crestType] and CURRENCY.CRESTS[req.crestType].currencyID then
+                        local currencyID = CURRENCY.CRESTS[req.crestType].currencyID
+                        local success, currencyInfo = pcall(C_CurrencyInfo.GetCurrencyInfo, currencyID)
+                        if success and currencyInfo then
+                            local iconText = CreateTextureMarkup(currencyInfo.iconFileID, 64, 64, 16, 16, 0, 1, 0, 1)
+                            local currencyName = currencyInfo.name or (baseData.baseName .. " Crest")
+                            GameTooltip:AddLine(string.format("%s %d x |cFF%s%s%s|r",
+                                iconText, req.count, baseData.color, currencyName, mythicText))
+                        end
+                    end
+                end
+
+                if tooltipInfo.requirements.secondTier then
+                    local req = tooltipInfo.requirements.secondTier
+                    local baseData = addon.CREST_BASE[req.crestType]
+                    local mythicText = req.mythicLevel > 0 and string.format(" (M%d+)", req.mythicLevel) or ""
+
+                    if CURRENCY.CRESTS[req.crestType] and CURRENCY.CRESTS[req.crestType].currencyID then
+                        local currencyID = CURRENCY.CRESTS[req.crestType].currencyID
+                        local success, currencyInfo = pcall(C_CurrencyInfo.GetCurrencyInfo, currencyID)
+                        if success and currencyInfo then
+                            local iconText = CreateTextureMarkup(currencyInfo.iconFileID, 64, 64, 16, 16, 0, 1, 0, 1)
+                            local currencyName = currencyInfo.name or (baseData.baseName .. " Crest")
+                            GameTooltip:AddLine(string.format("%s %d x |cFF%s%s%s|r",
+                                iconText, req.count, baseData.color, currencyName, mythicText))
+                        end
+                    end
+                end
+            elseif tooltipInfo.requirements.standard then
+                local req = tooltipInfo.requirements.standard
                 local baseData = addon.CREST_BASE[req.crestType]
                 local mythicText = req.mythicLevel > 0 and string.format(" (M%d+)", req.mythicLevel) or ""
 
@@ -491,60 +543,100 @@ local function SetUpgradeTooltip(self, tooltipInfo)
                     local success, currencyInfo = pcall(C_CurrencyInfo.GetCurrencyInfo, currencyID)
                     if success and currencyInfo then
                         local iconText = CreateTextureMarkup(currencyInfo.iconFileID, 64, 64, 16, 16, 0, 1, 0, 1)
-                        -- Use the actual currency name from the API
                         local currencyName = currencyInfo.name or (baseData.baseName .. " Crest")
-                    GameTooltip:AddLine(string.format("%s %d x |cFF%s%s%s|r",
-                        iconText,
-                        req.count,
-                        baseData.color,
-                        currencyName,
-                            mythicText))
+                        GameTooltip:AddLine(string.format("%s %d x |cFF%s%s%s|r",
+                            iconText, req.count, baseData.color, currencyName, mythicText))
                     end
                 end
             end
+        end
+    end,
+    
+    valorstones = function(info)
+        if not info then return end
+        GameTooltip:AddLine(info.name)
+        GameTooltip:AddLine("Current: " .. (info.quantity or 0), 1, 1, 1)
+        GameTooltip:AddLine("Maximum: 2000", 1, 1, 1)
+        GameTooltip:AddLine(" ")
+        GameTooltip:AddLine("Sources:", 0.9, 0.7, 0)
+        GameTooltip:AddLine("• Quests, Raids, Dungeons", 0.8, 0.8, 0.8)
+        GameTooltip:AddLine("• Battlegrounds, Arena", 0.8, 0.8, 0.8)
+        GameTooltip:AddLine("• Delves, World Activities", 0.8, 0.8, 0.8)
+        GameTooltip:AddLine(" ")
+        GameTooltip:AddLine("Used to upgrade all max-level gear", 0.8, 0.8, 0.8)
+    end,
+    
+    crest = function(data)
+        local info, crestData = data.info, data.crestData
+        if not info or not crestData then return end
+        
+        GameTooltip:AddLine(info.name)
+        GameTooltip:AddLine("Current: " .. (info.quantity or 0), 1, 1, 1)
+        if crestData.needed and crestData.needed > 0 then
+            GameTooltip:AddLine("Needed: " .. crestData.needed, 1, 0.82, 0)
+        end
+        
+        -- Add full crest tooltip content (migrated from CrestCurrencyFrame.lua)
+        for crestType, baseData in pairs(addon.CREST_BASE) do
+            if baseData.shortCode == crestData.reallyshortname then
+                GameTooltip:AddLine(" ")
+                GameTooltip:AddLine("Sources:", 0.9, 0.7, 0)
+                for _, source in ipairs(baseData.sources) do
+                    GameTooltip:AddLine("• " .. source, 0.8, 0.8, 0.8)
+                end
 
-            if tooltipInfo.requirements.secondTier then
-                local req = tooltipInfo.requirements.secondTier
-                local baseData = addon.CREST_BASE[req.crestType]
-                local mythicText = req.mythicLevel > 0 and string.format(" (M%d+)", req.mythicLevel) or ""
-
-                if CURRENCY.CRESTS[req.crestType] and CURRENCY.CRESTS[req.crestType].currencyID then
-                    local currencyID = CURRENCY.CRESTS[req.crestType].currencyID
-                    local success, currencyInfo = pcall(C_CurrencyInfo.GetCurrencyInfo, currencyID)
-                    if success and currencyInfo then
-                        local iconText = CreateTextureMarkup(currencyInfo.iconFileID, 64, 64, 16, 16, 0, 1, 0, 1)
-                        -- Use the actual currency name from the API
-                        local currencyName = currencyInfo.name or (baseData.baseName .. " Crest")
-                    GameTooltip:AddLine(string.format("%s %d x |cFF%s%s%s|r",
-                        iconText,
-                        req.count,
-                        baseData.color,
-                        currencyName,
-                            mythicText))
+                -- Add raid rewards section
+                GameTooltip:AddLine(" ")
+                GameTooltip:AddLine("Raid Rewards:", 0.9, 0.7, 0)
+                for raidName, raidData in pairs(addon.RAID_REWARDS) do
+                    for difficulty, rewardType in pairs(raidData.difficulties) do
+                        if rewardType == crestType then
+                            GameTooltip:AddLine(string.format("%s (%s):", raidData.name, difficulty), 0.9, 0.9, 0.9)
+                            local totalCrests = 0
+                            for _, boss in ipairs(raidData.bosses) do
+                                GameTooltip:AddLine(string.format("• %s: |cFF00FF00%d|r crests", boss.name, boss.reward), 0.8, 0.8, 0.8)
+                                if boss.name == "First Six Bosses" then
+                                    totalCrests = totalCrests + (boss.reward * 6)
+                                else
+                                    totalCrests = totalCrests + (boss.reward * 2)
+                                end
+                            end
+                            GameTooltip:AddLine(string.format("Total potential crests: |cFF00FF00%d|r", totalCrests), 0.8, 0.8, 0.8)
+                        end
                     end
                 end
-            end
-        elseif tooltipInfo.requirements.standard then
-            local req = tooltipInfo.requirements.standard
-            local baseData = addon.CREST_BASE[req.crestType]
-            local mythicText = req.mythicLevel > 0 and string.format(" (M%d+)", req.mythicLevel) or ""
 
-            if CURRENCY.CRESTS[req.crestType] and CURRENCY.CRESTS[req.crestType].currencyID then
-                local currencyID = CURRENCY.CRESTS[req.crestType].currencyID
-                local currencyInfo = C_CurrencyInfo.GetCurrencyInfo(currencyID)
-                local iconText = CreateTextureMarkup(currencyInfo.iconFileID, 64, 64, 16, 16, 0, 1, 0, 1)
-                -- Use the actual currency name from the API
-                local currencyName = currencyInfo.name or (baseData.baseName .. " Crest")
-                GameTooltip:AddLine(string.format("%s %d x |cFF%s%s%s|r",
-                    iconText,
-                    req.count,
-                    baseData.color,
-                    currencyName,
-                    mythicText))
+                -- Add dungeon rewards if this crest type has mythic requirements
+                if baseData.mythicLevel and baseData.mythicLevel > 0 then
+                    GameTooltip:AddLine(" ")
+                    GameTooltip:AddLine("Dungeon Rewards:", 0.9, 0.7, 0)
+                    
+                    local rewards = addon.CREST_REWARDS[crestType]
+                    if rewards then
+                        local remaining = crestData.needed and math.max(0, crestData.needed - crestData.current - (crestData.upgraded or 0)) or 0
+
+                        for level = baseData.mythicLevel, 20 do
+                            if rewards[level] then
+                                local rewardAmount = rewards[level].timed
+                                local expiredAmount = math.max(0, rewardAmount - addon.EXPIRED_KEYSTONE_DEDUCTION)
+                                local runsNeeded = remaining > 0 and math.ceil(remaining / rewardAmount) or 0
+                                local expiredRunsNeeded = remaining > 0 and math.ceil(remaining / expiredAmount) or 0
+
+                                local levelText = string.format("|cFF%sM%d|r", baseData.color, level)
+                                local rewardText = string.format("|cFF00FF00%d|r", rewardAmount)
+                                local runsText = string.format("(%d runs)", runsNeeded)
+                                local expiredText = string.format("| Expired: |cFFFF0000%d|r (%d runs)", expiredAmount, expiredRunsNeeded)
+
+                                GameTooltip:AddLine(string.format("%s: %s %s %s", levelText, rewardText, runsText, expiredText), 1, 1, 1, true)
+                            end
+                        end
+                    end
+                end
+                break
             end
         end
     end
-end
+}
 
 -- Process a single upgrade track and update crest requirements
 local function ProcessUpgradeTrack(track, levelsToUpgrade, current)
@@ -990,7 +1082,12 @@ end
 -- Export functions to addon namespace
 addon.Debug = Debug
 addon.updateDisplay = UpdateDisplay
-addon.setUpgradeTooltip = SetUpgradeTooltip
+-- Export unified tooltip system
+addon.showTooltip = showTooltip
+addon.hideTooltip = hideTooltip
+addon.tooltipProviders = tooltipProviders
+-- Legacy compatibility (deprecated)
+addon.setUpgradeTooltip = function(self, tooltipInfo) tooltipProviders.upgrade(tooltipInfo) end
 addon.processUpgradeTrack = ProcessUpgradeTrack
 addon.getCachedTooltipData = GetCachedTooltipData
 addon.getCachedItemInfo = GetCachedItemInfo
