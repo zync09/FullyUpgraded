@@ -155,12 +155,12 @@ valorFrame:SetScript("OnEnter", function(self)
     if valorData and valorData.currencyID then
         local info = C_CurrencyInfo.GetCurrencyInfo(valorData.currencyID)
         if info then
-            showTooltip(self, "ANCHOR_LEFT", tooltipProviders.valorstones, info)
+            addon.showTooltip(self, "ANCHOR_LEFT", addon.tooltipProviders.valorstones, info)
         end
     end
 end)
 
-valorFrame:SetScript("OnLeave", hideTooltip)
+valorFrame:SetScript("OnLeave", addon.hideTooltip)
 
 -- Function to update Valorstones display
 local function updateValorstones()
@@ -181,6 +181,12 @@ end
 
 -- Export the update function
 addon.updateValorstones = updateValorstones
+
+-- Export shared function to check if character tab is selected (defined early to avoid loading issues)
+local function isCharacterTabSelected()
+    return PaperDollFrame and PaperDollFrame:IsVisible()
+end
+addon.isCharacterTabSelected = isCharacterTabSelected
 
 -- Create currency frame for crests only (positioned below the title bar)
 local currencyFrame = CreateFrame("Frame", "GearUpgradeCurrencyFrame", masterFrame)
@@ -209,7 +215,7 @@ local function InitializeSavedVariables()
 end
 
 -- Function to update text positions with saving
-local function UpdateTextPositions(newPosition)
+local function updateTextPositions(newPosition)
     if TEXT_POSITIONS[newPosition] then
         currentTextPos = newPosition
         FullyUpgradedDB.textPosition = newPosition
@@ -226,13 +232,7 @@ local function UpdateTextPositions(newPosition)
 end
 
 -- Export UpdateTextPositions to addon namespace
-addon.UpdateTextPositions = UpdateTextPositions
-
--- Export shared function to check if character tab is selected
-local function isCharacterTabSelected()
-    return PaperDollFrame and PaperDollFrame:IsVisible()
-end
-addon.isCharacterTabSelected = isCharacterTabSelected
+addon.UpdateTextPositions = updateTextPositions
 
 -- Function to check if currency has changed
 local function HasCurrencyChanged()
@@ -253,7 +253,7 @@ local function HasCurrencyChanged()
 end
 
 -- Check currency for all crests with caching
-local function CheckCurrencyForAllCrests()
+local function checkCurrencyForAllCrests()
     local hasChanges = false
 
     for crestType, crestData in pairs(CURRENCY.CRESTS) do
@@ -287,7 +287,7 @@ local function CheckCurrencyForAllCrests()
 end
 
 -- Function to update frame visibility
-local function UpdateFrameVisibility()
+local function updateFrameVisibility()
     if isCharacterTabSelected() then
         masterFrame:Show()
     else
@@ -296,15 +296,15 @@ local function UpdateFrameVisibility()
 end
 
 -- Hook character frame tab changes
-CharacterFrame:HookScript("OnShow", UpdateFrameVisibility)
+CharacterFrame:HookScript("OnShow", updateFrameVisibility)
 CharacterFrame:HookScript("OnHide", function() masterFrame:Hide() end)
 
 -- Hook tab changes
-hooksecurefunc("ToggleCharacter", UpdateFrameVisibility)
+hooksecurefunc("ToggleCharacter", updateFrameVisibility)
 
 -- Optimized cache cleanup with reduced frequency
 local lastCleanupTime = 0
-local function CleanOldCacheEntries()
+local function cleanOldCacheEntries()
     local currentTime = GetTime()
     
     -- Only clean caches every 30 seconds (configurable)
@@ -318,7 +318,7 @@ local function CleanOldCacheEntries()
     for k, v in pairs(tooltipCache) do
         count = count + 1
         -- Remove old entries or if cache is too large
-        if count > MAX_CACHE_ENTRIES or (currentTime - v.time) > addon.TOOLTIP_CACHE_TTL then
+        if count > addon.MAX_CACHE_ENTRIES or (currentTime - v.time) > addon.TOOLTIP_CACHE_TTL then
             tooltipCache[k] = nil
         end
     end
@@ -327,7 +327,7 @@ local function CleanOldCacheEntries()
     count = 0
     for k in pairs(itemCache) do
         count = count + 1
-        if count > MAX_CACHE_ENTRIES then
+        if count > addon.MAX_CACHE_ENTRIES then
             itemCache[k] = nil
         end
     end
@@ -336,14 +336,14 @@ local function CleanOldCacheEntries()
     count = 0
     for k in pairs(currencyCache) do
         count = count + 1
-        if count > MAX_CACHE_ENTRIES then
+        if count > addon.MAX_CACHE_ENTRIES then
             currencyCache[k] = nil
         end
     end
 end
 
 -- Modify CalculateUpgradedCrests to use table pool
-local function CalculateUpgradedCrests()
+local function calculateUpgradedCrests()
     local currentTime = GetTime()
 
     -- Check if cache is still valid
@@ -401,7 +401,7 @@ local function CalculateUpgradedCrests()
 end
 
 -- Modify UpdateDisplay to include cache cleanup
-local function UpdateDisplay()
+local function updateDisplay()
     -- Skip intensive calculations if player is in combat
     if UnitAffectingCombat("player") then
         return
@@ -414,19 +414,19 @@ local function UpdateDisplay()
 
     if isCharacterTabSelected() then
         -- Clean caches periodically
-        CleanOldCacheEntries()
+        cleanOldCacheEntries()
 
         -- Only initialize texts if they don't exist
         if not next(addon.upgradeTextPool) then
             addon.initializeUpgradeTexts()
         end
 
-        local currencyChanged = CheckCurrencyForAllCrests()
+        local currencyChanged = checkCurrencyForAllCrests()
         local calculationsChanged = false
 
         -- Only recalculate if currency changed
         if currencyChanged then
-            calculationsChanged = CalculateUpgradedCrests()
+            calculationsChanged = calculateUpgradedCrests()
         end
 
         -- Update displays in coordinated fashion
@@ -639,7 +639,7 @@ local tooltipProviders = {
 }
 
 -- Process a single upgrade track and update crest requirements
-local function ProcessUpgradeTrack(track, levelsToUpgrade, current)
+local function processUpgradeTrack(track, levelsToUpgrade, current)
     if not track.crest then
         return CRESTS_TO_UPGRADE * levelsToUpgrade -- Just return the upgrade count for display
     elseif track.splitUpgrade then
@@ -692,7 +692,7 @@ local function ProcessUpgradeTrack(track, levelsToUpgrade, current)
 end
 
 -- Optimization: Cache tooltip data
-local function GetCachedTooltipData(slotID, itemLink)
+local function getCachedTooltipData(slotID, itemLink)
     local currentTime = GetTime()
     local cacheKey = itemLink or slotID
 
@@ -718,7 +718,7 @@ local function GetCachedTooltipData(slotID, itemLink)
 end
 
 -- Optimization: Cache item info with error handling
-local function GetCachedItemInfo(itemLink)
+local function getCachedItemInfo(itemLink)
     if not itemCache[itemLink] then
         local success, result = pcall(function()
             return { C_Item.GetItemInfo(itemLink) }
@@ -799,7 +799,7 @@ local lastUpdateTime = 0
 local updatePending = false
 local UPDATE_THROTTLE = 0.2  -- Minimum time between updates
 
-local function ThrottledUpdate()
+local function throttledUpdate()
     local currentTime = GetTime()
     
     -- Don't update if we just updated recently
@@ -809,7 +809,7 @@ local function ThrottledUpdate()
             C_Timer.After(UPDATE_THROTTLE, function()
                 updatePending = false
                 if isCharacterTabSelected() then
-                    UpdateDisplay()
+                    updateDisplay()
                     lastUpdateTime = GetTime()
                 end
             end)
@@ -819,7 +819,7 @@ local function ThrottledUpdate()
     
     -- Update immediately if enough time has passed
     if isCharacterTabSelected() then
-        UpdateDisplay()
+        updateDisplay()
         lastUpdateTime = currentTime
     end
 end
@@ -842,9 +842,9 @@ f:SetScript("OnEvent", function(_, event, ...)
                 print("[FullyUpgraded] ERROR: initializeCharacterFrame not available yet")
             end
             addon.initialized = true
-            UpdateDisplay()
+            updateDisplay()
         end
-        UpdateFrameVisibility()
+        updateFrameVisibility()
     elseif event == "PLAYER_LOGIN" then
         if not addon.initialized then
             if addon.initializeCharacterFrame then
@@ -853,18 +853,18 @@ f:SetScript("OnEvent", function(_, event, ...)
                 print("[FullyUpgraded] ERROR: initializeCharacterFrame not available at login")
             end
             addon.initialized = true
-            UpdateDisplay()
+            updateDisplay()
         end
-        UpdateFrameVisibility()
+        updateFrameVisibility()
     elseif event == "CURRENCY_DISPLAY_UPDATE" then
         -- Only update if not in combat
         if not inCombat then
-            ThrottledUpdate()
+            throttledUpdate()
         end
     elseif event == "PLAYER_EQUIPMENT_CHANGED" then
-        CalculateUpgradedCrests()
+        calculateUpgradedCrests()
         -- Delay the display update to batch multiple equipment changes
-        C_Timer.After(0.3, ThrottledUpdate)
+        C_Timer.After(0.3, throttledUpdate)
     elseif event == "PLAYER_REGEN_DISABLED" then
         inCombat = true
         -- Hide frames during combat for performance
@@ -878,7 +878,7 @@ f:SetScript("OnEvent", function(_, event, ...)
             if masterFrame then
                 masterFrame:Show()
             end
-            ThrottledUpdate()
+            throttledUpdate()
         end
     end
 end)
@@ -897,14 +897,14 @@ CharacterFrame:HookScript("OnHide", function()
 end)
 
 -- Function to force a currency update
-local function ForceCurrencyUpdate()
+local function forceCurrencyUpdate()
     -- Clear caches to force update
     wipe(currencyCache)
     wipe(upgradeCalculationsCache.data)
     upgradeCalculationsCache.lastUpdate = 0
 
-    CheckCurrencyForAllCrests()
-    CalculateUpgradedCrests()
+    checkCurrencyForAllCrests()
+    calculateUpgradedCrests()
     if addon.showCrestCurrency then
         addon.showCrestCurrency()
     end
@@ -916,7 +916,7 @@ local function ForceCurrencyUpdate()
 end
 
 -- Function to set text visibility
-local function SetTextVisibility(visible)
+local function setTextVisibility(visible)
     FullyUpgradedDB.textVisible = visible
 
     -- Update all existing texts
@@ -931,7 +931,7 @@ local function SetTextVisibility(visible)
 end
 
 -- Export SetTextVisibility to addon namespace
-addon.SetTextVisibility = SetTextVisibility
+addon.SetTextVisibility = setTextVisibility
 
 -- Add slash command handler
 SLASH_FULLYUPGRADED1 = "/fullyupgraded"
@@ -963,22 +963,22 @@ SlashCmdList["FULLYUPGRADED"] = function(msg)
         end
     elseif cmd == "text" or cmd == "show" or cmd == "hide" then
         if cmd == "hide" then
-            SetTextVisibility(false)
+            setTextVisibility(false)
             print("|cFFFFFF00FullyUpgraded:|r Text hidden")
         elseif cmd == "show" then
-            SetTextVisibility(true)
+            setTextVisibility(true)
             print("|cFFFFFF00FullyUpgraded:|r Text shown")
         else
             -- Toggle current state
-            SetTextVisibility(not FullyUpgradedDB.textVisible)
+            setTextVisibility(not FullyUpgradedDB.textVisible)
             print("|cFFFFFF00FullyUpgraded:|r Text " .. (FullyUpgradedDB.textVisible and "shown" or "hidden"))
         end
     elseif cmd == "refresh" or cmd == "r" then
         print("|cFFFFFF00FullyUpgraded:|r Refreshing upgrade information...")
-        UpdateDisplay()
+        updateDisplay()
     elseif cmd == "currency" or cmd == "c" then
         print("|cFFFFFF00FullyUpgraded:|r Refreshing currency information...")
-        ForceCurrencyUpdate()
+        forceCurrencyUpdate()
     elseif cmd == "share" then
         shareUpgradeNeeds()
     elseif cmd == "colors" then
@@ -993,7 +993,7 @@ SlashCmdList["FULLYUPGRADED"] = function(msg)
         addon.debugMode = not addon.debugMode
         print("|cFFFFFF00FullyUpgraded:|r Debug mode " .. (addon.debugMode and "enabled" or "disabled"))
         if addon.debugMode then
-            UpdateDisplay()
+            updateDisplay()
         end
     else
         print("|cFFFFFF00FullyUpgraded commands:|r")
@@ -1068,7 +1068,7 @@ end
 f:SetScript("OnDisable", CleanupAddon)
 
 -- Get the current season's item level range
-local function GetCurrentSeasonItemLevelRange()
+local function getCurrentSeasonItemLevelRange()
     return SEASONS[3].MIN_ILVL, SEASONS[3].MAX_ILVL
 end
 
@@ -1081,20 +1081,20 @@ end
 
 -- Export functions to addon namespace
 addon.Debug = Debug
-addon.updateDisplay = UpdateDisplay
+addon.updateDisplay = updateDisplay
 -- Export unified tooltip system
 addon.showTooltip = showTooltip
 addon.hideTooltip = hideTooltip
 addon.tooltipProviders = tooltipProviders
 -- Legacy compatibility (deprecated)
 addon.setUpgradeTooltip = function(self, tooltipInfo) tooltipProviders.upgrade(tooltipInfo) end
-addon.processUpgradeTrack = ProcessUpgradeTrack
-addon.getCachedTooltipData = GetCachedTooltipData
-addon.getCachedItemInfo = GetCachedItemInfo
-addon.calculateUpgradedCrests = CalculateUpgradedCrests
-addon.checkCurrencyForAllCrests = CheckCurrencyForAllCrests
-addon.getCurrentSeasonItemLevelRange = GetCurrentSeasonItemLevelRange
-addon.forceCurrencyUpdate = ForceCurrencyUpdate
+addon.processUpgradeTrack = processUpgradeTrack
+addon.getCachedTooltipData = getCachedTooltipData
+addon.getCachedItemInfo = getCachedItemInfo
+addon.calculateUpgradedCrests = calculateUpgradedCrests
+addon.checkCurrencyForAllCrests = checkCurrencyForAllCrests
+addon.getCurrentSeasonItemLevelRange = getCurrentSeasonItemLevelRange
+addon.forceCurrencyUpdate = forceCurrencyUpdate
 
 -- Character frame initialization will happen via events, not here
 print("[FullyUpgraded] FullyUpgraded.lua loaded, waiting for game events to initialize")
