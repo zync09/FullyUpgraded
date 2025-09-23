@@ -230,7 +230,7 @@ local function processUpgradeableItem(button, track, trackName, currentNum, maxN
         end
     end
 
-    addon.processUpgradeTrack(track, levelsToUpgrade, currentNum)
+    addon.processUpgradeTrack(track, levelsToUpgrade, currentNum, trackName)
 end
 
 -- Process a fully upgraded item
@@ -369,6 +369,11 @@ local function updateAllUpgradeTexts()
     -- Reset needed counts
     for crestType, _ in pairs(addon.CURRENCY.CRESTS) do
         addon.CURRENCY.CRESTS[crestType].needed = 0
+    end
+    
+    -- Reset Valorstone needed count
+    if addon.CURRENCY.VALORSTONES then
+        addon.CURRENCY.VALORSTONES.needed = 0
     end
 
     -- Process each equipment slot

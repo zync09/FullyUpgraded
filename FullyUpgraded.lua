@@ -169,7 +169,14 @@ local function updateValorstones()
         local info = C_CurrencyInfo.GetCurrencyInfo(valorData.currencyID)
         if info then
             valorIcon:SetTexture(info.iconFileID)
-            valorText:SetText(tostring(info.quantity or 0))
+            valorData.current = info.quantity or 0
+            
+            -- Display format: current or current/needed if needed > 0
+            local displayText = tostring(valorData.current)
+            if valorData.needed and valorData.needed > 0 then
+                displayText = displayText .. "/" .. valorData.needed
+            end
+            valorText:SetText(displayText)
             valorFrame:Show()
         else
             valorFrame:Hide()
@@ -401,7 +408,7 @@ local function calculateUpgradedCrests()
 end
 
 -- Modify UpdateDisplay to include cache cleanup
-local function updateDisplay()
+local function updateDisplay(forceUpdate)
     -- Skip intensive calculations if player is in combat
     if UnitAffectingCombat("player") then
         return
@@ -430,7 +437,8 @@ local function updateDisplay()
         end
 
         -- Update displays in coordinated fashion
-        if currencyChanged or calculationsChanged then
+        -- Force update if requested (e.g., after equipment change) or if currency/calculations changed
+        if forceUpdate or currencyChanged or calculationsChanged then
             -- Update upgrade texts on equipment
             if addon.updateAllUpgradeTexts then
                 addon.updateAllUpgradeTexts()
@@ -554,16 +562,34 @@ local tooltipProviders = {
     
     valorstones = function(info)
         if not info then return end
+        local valorData = addon.CURRENCY.VALORSTONES
         GameTooltip:AddLine(info.name)
         GameTooltip:AddLine("Current: " .. (info.quantity or 0), 1, 1, 1)
-        GameTooltip:AddLine("Maximum: 2000", 1, 1, 1)
+        if valorData.needed and valorData.needed > 0 then
+            GameTooltip:AddLine("Needed: " .. valorData.needed, 1, 0.82, 0)
+        end
+        GameTooltip:AddLine("Maximum: " .. (valorData.cap or 2000), 1, 1, 1)
+        
+        -- Use sources from Constants.lua
+        if valorData.sources then
+            GameTooltip:AddLine(" ")
+            GameTooltip:AddLine("Sources:", 0.9, 0.7, 0)
+            for _, source in ipairs(valorData.sources) do
+                GameTooltip:AddLine("• " .. source, 0.8, 0.8, 0.8)
+            end
+        end
+        
+        if valorData.usage then
+            GameTooltip:AddLine(" ")
+            GameTooltip:AddLine(valorData.usage, 0.8, 0.8, 0.8)
+        end
+        
+        -- Add discount information
         GameTooltip:AddLine(" ")
-        GameTooltip:AddLine("Sources:", 0.9, 0.7, 0)
-        GameTooltip:AddLine("• Quests, Raids, Dungeons", 0.8, 0.8, 0.8)
-        GameTooltip:AddLine("• Battlegrounds, Arena", 0.8, 0.8, 0.8)
-        GameTooltip:AddLine("• Delves, World Activities", 0.8, 0.8, 0.8)
-        GameTooltip:AddLine(" ")
-        GameTooltip:AddLine("Used to upgrade all max-level gear", 0.8, 0.8, 0.8)
+        GameTooltip:AddLine("Discount System:", 0.9, 0.7, 0)
+        GameTooltip:AddLine("• 50% discount on upgrades if you've obtained", 0.8, 0.8, 0.8)
+        GameTooltip:AddLine("  higher ilvl gear in same slot (account-wide)", 0.8, 0.8, 0.8)
+        GameTooltip:AddLine("• Crest discounts are character-specific", 0.8, 0.8, 0.8)
     end,
     
     crest = function(data)
@@ -638,8 +664,70 @@ local tooltipProviders = {
     end
 }
 
--- Process a single upgrade track and update crest requirements
-local function processUpgradeTrack(track, levelsToUpgrade, current)
+-- Process a single upgrade track and update crest and valorstone requirements
+local function processUpgradeTrack(track, levelsToUpgrade, current, trackName)
+    -- Calculate Valorstone costs
+    if addon.VALORSTONE_COSTS and trackName then
+        local trackUpper = trackName:upper()
+        local trackCosts = addon.VALORSTONE_COSTS[trackUpper]
+        if trackCosts then
+            local valorstoneCost = 0
+            local currentLevel = tonumber(current) or 0
+            
+            -- Calculate the valorstone cost for the upgrades
+            if type(trackCosts.perLevel) == "table" then
+                -- Detailed per-level costs available
+                -- For an item at 3/6 upgrading to 4/6:
+                -- currentLevel = 3, levelsToUpgrade = 1
+                -- We need perLevel[3] which is the cost FROM 3 TO 4
+                local maxLevel = trackCosts.maxUpgrades or trackCosts.upgradeLevels
+                
+                for upgradeStep = 0, levelsToUpgrade - 1 do
+                    local levelIndex = currentLevel + upgradeStep
+                    -- Ensure we don't go past the maximum upgrade level
+                    -- For X/6 items: perLevel[1] through perLevel[5] exist
+                    -- An item at 5/6 (currentLevel=5) can upgrade to 6/6 using perLevel[5]
+                    if levelIndex <= maxLevel and trackCosts.perLevel[levelIndex] then
+                        valorstoneCost = valorstoneCost + trackCosts.perLevel[levelIndex]
+                        
+                        -- Debug output (can be removed later)
+                        if addon.debugMode then
+                            print(string.format("[FullyUpgraded] %s: Level %d->%d costs %d valorstones", 
+                                trackName, levelIndex, levelIndex + 1, trackCosts.perLevel[levelIndex]))
+                        end
+                    end
+                end
+            elseif type(trackCosts.perLevel) == "number" then
+                -- Average cost per level
+                valorstoneCost = trackCosts.perLevel * levelsToUpgrade
+            end
+            
+            -- Apply discount if applicable (placeholder for future implementation)
+            -- Note: Detecting account-wide highest item level per slot would require
+            -- storing this data or querying WoW's internal systems
+            local discountedCost = valorstoneCost
+            
+            -- TODO: Implement discount detection logic
+            -- if hasAccountWideDiscount(slotName, currentItemLevel) then
+            --     discountedCost = math.floor(valorstoneCost * addon.VALORSTONE_DISCOUNT.valorstonesDiscount)
+            -- end
+            
+            -- Update Valorstone needed count
+            if CURRENCY.VALORSTONES then
+                CURRENCY.VALORSTONES.needed = (CURRENCY.VALORSTONES.needed or 0) + discountedCost
+                
+                if addon.debugMode then
+                    if discountedCost ~= valorstoneCost then
+                        print(string.format("[FullyUpgraded] %s: Base cost %d, discounted to %d valorstones", 
+                            trackName, valorstoneCost, discountedCost))
+                    end
+                    print(string.format("[FullyUpgraded] Total valorstones needed: %d", CURRENCY.VALORSTONES.needed))
+                end
+            end
+        end
+    end
+    
+    -- Original crest calculation logic
     if not track.crest then
         return CRESTS_TO_UPGRADE * levelsToUpgrade -- Just return the upgrade count for display
     elseif track.splitUpgrade then
@@ -799,17 +887,17 @@ local lastUpdateTime = 0
 local updatePending = false
 local UPDATE_THROTTLE = 0.2  -- Minimum time between updates
 
-local function throttledUpdate()
+local function throttledUpdate(forceUpdate)
     local currentTime = GetTime()
     
-    -- Don't update if we just updated recently
-    if currentTime - lastUpdateTime < UPDATE_THROTTLE then
+    -- Don't update if we just updated recently (unless forced)
+    if not forceUpdate and currentTime - lastUpdateTime < UPDATE_THROTTLE then
         if not updatePending then
             updatePending = true
             C_Timer.After(UPDATE_THROTTLE, function()
                 updatePending = false
                 if isCharacterTabSelected() then
-                    updateDisplay()
+                    updateDisplay(true)  -- Force update when delayed
                     lastUpdateTime = GetTime()
                 end
             end)
@@ -817,9 +905,9 @@ local function throttledUpdate()
         return
     end
     
-    -- Update immediately if enough time has passed
+    -- Update immediately if enough time has passed or forced
     if isCharacterTabSelected() then
-        updateDisplay()
+        updateDisplay(forceUpdate)
         lastUpdateTime = currentTime
     end
 end
@@ -862,9 +950,20 @@ f:SetScript("OnEvent", function(_, event, ...)
             throttledUpdate()
         end
     elseif event == "PLAYER_EQUIPMENT_CHANGED" then
+        local slotID = ...
+        -- Clear tooltip cache for the changed slot
+        if slotID then
+            tooltipCache[slotID] = nil
+            -- Also clear any item link cache for this slot
+            local itemLink = GetInventoryItemLink("player", slotID)
+            if itemLink then
+                tooltipCache[itemLink] = nil
+                itemCache[itemLink] = nil
+            end
+        end
         calculateUpgradedCrests()
-        -- Delay the display update to batch multiple equipment changes
-        C_Timer.After(0.3, throttledUpdate)
+        -- Force immediate update for equipment changes
+        throttledUpdate(true)
     elseif event == "PLAYER_REGEN_DISABLED" then
         inCombat = true
         -- Hide frames during combat for performance
