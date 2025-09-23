@@ -207,7 +207,19 @@ addon.CURRENCY = {
         reallyshortname = "V",
         color = "00ff00",  -- Green color for valorstones
         current = 0,
-        needed = 0
+        needed = 0,
+        cap = 2000,  -- Maximum valorstones per character
+        sources = {
+            "Wax Farming (Snuffling) - 10 valorstones per 5 Odd Globs of Wax",
+            "Mythic+ Dungeons - 100-150 valorstones per run",
+            "C.H.E.T.T. Console Weekly - 20 per task, 250 bonus for 4+ tasks",
+            "Weekly Quests and Urge to Surge events",
+            "Delves",
+            "World Quests",
+            "Raid bosses",
+            "PvP activities"
+        },
+        usage = "Required for all gear upgrades across all tracks in War Within Season 3"
     }
 }
 
@@ -374,4 +386,108 @@ addon.RAID_REWARDS = {
             { name = "Last Two Bosses",  reward = 15 }
         }
     }
+}
+
+-- Valorstone costs per upgrade level for each track
+-- Note: These are approximate values based on available data
+-- Explorer track only needs valorstones (no crests)
+-- Higher tracks need both valorstones and crests starting at certain levels
+addon.VALORSTONE_COSTS = {
+    EXPLORER = {
+        -- Total: ~159 valorstones for full upgrade (8 levels)
+        perLevel = 20,  -- Average cost per level
+        totalToMax = 159,
+        upgradeLevels = 8,
+        crestsStartAt = nil  -- No crests needed
+    },
+    ADVENTURER = {
+        -- Level 1->2: 75, Level 1->3: 150, Level 1->8: 705 valorstones
+        perLevel = {
+            [1] = 75,   -- 1/8 -> 2/8
+            [2] = 75,   -- 2/8 -> 3/8
+            [3] = 85,   -- 3/8 -> 4/8
+            [4] = 90,   -- 4/8 -> 5/8 (crests start here)
+            [5] = 95,   -- 5/8 -> 6/8
+            [6] = 95,   -- 6/8 -> 7/8
+            [7] = 95,   -- 7/8 -> 8/8
+            [8] = 95    -- Fully upgraded
+        },
+        totalToMax = 705,
+        upgradeLevels = 8,
+        crestsStartAt = 5  -- Weathered crests needed from level 5
+    },
+    VETERAN = {
+        -- Estimated based on scaling from Adventurer
+        perLevel = 100,  -- Average cost per level
+        totalToMax = 800,
+        upgradeLevels = 8,
+        crestsStartAt = 6  -- Carved crests needed from level 6
+    },
+    CHAMPION = {
+        -- Estimated based on scaling
+        perLevel = 120,  -- Average cost per level
+        totalToMax = 960,
+        upgradeLevels = 8,
+        crestsStartAt = 5  -- Mixed crests (Weathered then Runed)
+    },
+    HERO = {
+        -- Range: 740-1850 valorstones total
+        -- Hero items start at 1/6 and upgrade to 6/6 (5 upgrades total)
+        -- These are INCREMENTAL costs per single upgrade level
+        perLevel = {
+            [1] = 148,  -- Cost for 1/6 -> 2/6 upgrade only (Runed crests)
+            [2] = 148,  -- Cost for 2/6 -> 3/6 upgrade only (Runed crests)
+            [3] = 148,  -- Cost for 3/6 -> 4/6 upgrade only (Runed crests)
+            [4] = 185,  -- Cost for 4/6 -> 5/6 upgrade only (Gilded crests)
+            [5] = 221   -- Cost for 5/6 -> 6/6 upgrade only (Gilded crests)
+        },
+        totalToMax = 850,  -- Total of all 5 upgrades (148*3 + 185 + 221)
+        upgradeLevels = 6,  -- Shows as X/6 in game
+        maxUpgrades = 5,    -- Actually 5 upgrades from 1/6 to 6/6
+        crestsStartAt = 1  -- Crests needed from start
+    },
+    MYTH = {
+        -- Highest tier gear
+        -- Myth items start at 1/6 and upgrade to 6/6 (5 upgrades total)
+        -- These are BASE COSTS before any discounts (verified in-game)
+        perLevel = {
+            [1] = 190,  -- Base cost for 1/6 -> 2/6 upgrade only (Gilded crests)
+            [2] = 190,  -- Base cost for 2/6 -> 3/6 upgrade only (Gilded crests)
+            [3] = 190,  -- Base cost for 3/6 -> 4/6 upgrade only (Gilded crests)
+            [4] = 190,  -- Base cost for 4/6 -> 5/6 upgrade only (Gilded crests)
+            [5] = 190   -- Base cost for 5/6 -> 6/6 upgrade only (Gilded crests)
+        },
+        totalToMax = 950,   -- Total of all 5 upgrades (190*5)
+        upgradeLevels = 6,  -- Shows as X/6 in game
+        maxUpgrades = 5,    -- Actually 5 upgrades from 1/6 to 6/6
+        crestsStartAt = 1  -- Gilded crests needed from start
+    }
+}
+
+-- Valorstone discount system (based on actual game mechanics)
+addon.VALORSTONE_DISCOUNT = {
+    -- Account-wide discount system: Once you obtain gear of a certain item level
+    -- in a slot, future upgrades of lower level gear in that slot get discounts
+    
+    valorstonesDiscount = 0.5,  -- 50% discount on valorstones (account-wide)
+    maxDiscount = 0.6,          -- Maximum possible discount is 60%
+    accountWide = true,         -- Valorstone discount applies account-wide
+    
+    -- Special rules for certain slots
+    dualSlots = {
+        -- These slots need TWO pieces to get the discount (since you can equip 2)
+        "Finger0Slot", "Finger1Slot",  -- Rings
+        "Trinket0Slot", "Trinket1Slot", -- Trinkets
+        "MainHandSlot", "SecondaryHandSlot"  -- One-handed weapons
+    },
+    
+    -- Crest discounts (character-specific, NOT account-wide)
+    crestDiscount = 1.0,  -- 100% discount on crests (character-specific)
+    crestAccountWide = false,  -- Crest discount is NOT account-wide
+    
+    -- How the system works:
+    -- 1. When you get an item of item level X in a slot (drop or upgrade)
+    -- 2. Future upgrades of lower ilvl items in that slot cost 50% valorstones
+    -- 3. For rings/trinkets/1h weapons: the LOWER of your two equipped determines discount
+    -- 4. Crest discount is separate and character-only
 }
