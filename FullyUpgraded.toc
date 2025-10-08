@@ -1,4 +1,4 @@
-## Interface: 112500
+## Interface: 110205
 ## Title: Fully Upgraded
 ## Notes: Displays the number of upgrades available for each gear piece in the character frame
 ## Author: Zyncx (Frostmourne)
