@@ -294,6 +294,7 @@ addon.TEXT_POSITIONS = {
 
 -- Upgrade track definitions based on crest data
 addon.UPGRADE_TRACKS = (function()
+    local weathered = addon.CREST_BASE["WEATHERED"]
     local tracks = {
         EXPLORER = {
             color = "|cFFffffff",
@@ -311,6 +312,25 @@ addon.UPGRADE_TRACKS = (function()
                     crest = nil,
                     shortname = "Explorer",
                     levels = 0
+                }
+            }
+        },
+        ADVENTURER = {
+            color = "|cFFffffff",
+            crest = nil,
+            shortname = "Adventurer",
+            finalCrest = weathered.baseName .. " " .. weathered.shortCode,
+            upgradeLevels = 8,
+            splitUpgrade = {
+                firstTier = {
+                    crest = nil,
+                    shortname = "Adventurer",
+                    levels = 4
+                },
+                secondTier = {
+                    crest = weathered.baseName .. " " .. weathered.shortCode,
+                    shortname = weathered.baseName,
+                    levels = 4
                 }
             }
         }
