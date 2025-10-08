@@ -376,11 +376,23 @@ local function updateAllUpgradeTexts()
         addon.CURRENCY.VALORSTONES.needed = 0
     end
 
+    -- Reset total upgrades counter
+    addon.totalUpgrades = 0
+
     -- Process each equipment slot
     for _, slot in ipairs(EQUIPMENT_SLOTS) do
         local button = upgradeTextPool[slot]
         if button then
             processEquipmentSlot(slot, button)
+        end
+    end
+
+    -- Update title with total upgrades
+    if addon.titleText and addon.totalUpgrades then
+        if addon.totalUpgrades > 0 then
+            addon.titleText:SetText(string.format("Fully Upgraded in %d", addon.totalUpgrades))
+        else
+            addon.titleText:SetText("Fully Upgraded")
         end
     end
 end

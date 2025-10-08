@@ -330,13 +330,13 @@ addon.UPGRADE_TRACKS = (function()
         },
         HERO = {
             startCrest = "RUNED",
-            levels = 6,
+            levels = 8,
             splitAt = 4
         },
         MYTH = {
             startCrest = "GILDED",
-            levels = 6,
-            splitAt = 6
+            levels = 8,
+            splitAt = 8
         }
     }
 
@@ -431,35 +431,38 @@ addon.VALORSTONE_COSTS = {
         crestsStartAt = 5  -- Mixed crests (Weathered then Runed)
     },
     HERO = {
-        -- Range: 740-1850 valorstones total
-        -- Hero items start at 1/6 and upgrade to 6/6 (5 upgrades total)
+        -- Hero items start at 1/8 and upgrade to 8/8 (7 upgrades total)
         -- These are INCREMENTAL costs per single upgrade level
         perLevel = {
-            [1] = 148,  -- Cost for 1/6 -> 2/6 upgrade only (Runed crests)
-            [2] = 148,  -- Cost for 2/6 -> 3/6 upgrade only (Runed crests)
-            [3] = 148,  -- Cost for 3/6 -> 4/6 upgrade only (Runed crests)
-            [4] = 185,  -- Cost for 4/6 -> 5/6 upgrade only (Gilded crests)
-            [5] = 221   -- Cost for 5/6 -> 6/6 upgrade only (Gilded crests)
+            [1] = 148,  -- Cost for 1/8 -> 2/8 upgrade only (Runed crests)
+            [2] = 148,  -- Cost for 2/8 -> 3/8 upgrade only (Runed crests)
+            [3] = 148,  -- Cost for 3/8 -> 4/8 upgrade only (Runed crests)
+            [4] = 148,  -- Cost for 4/8 -> 5/8 upgrade only (Runed crests)
+            [5] = 185,  -- Cost for 5/8 -> 6/8 upgrade only (Gilded crests)
+            [6] = 185,  -- Cost for 6/8 -> 7/8 upgrade only (Gilded crests)
+            [7] = 221   -- Cost for 7/8 -> 8/8 upgrade only (Gilded crests)
         },
-        totalToMax = 850,  -- Total of all 5 upgrades (148*3 + 185 + 221)
-        upgradeLevels = 6,  -- Shows as X/6 in game
-        maxUpgrades = 5,    -- Actually 5 upgrades from 1/6 to 6/6
+        totalToMax = 1183,  -- Total of all 7 upgrades (148*4 + 185*2 + 221)
+        upgradeLevels = 8,  -- Shows as X/8 in game
+        maxUpgrades = 7,    -- Actually 7 upgrades from 1/8 to 8/8
         crestsStartAt = 1  -- Crests needed from start
     },
     MYTH = {
         -- Highest tier gear
-        -- Myth items start at 1/6 and upgrade to 6/6 (5 upgrades total)
+        -- Myth items start at 1/8 and upgrade to 8/8 (7 upgrades total)
         -- These are BASE COSTS before any discounts (verified in-game)
         perLevel = {
-            [1] = 190,  -- Base cost for 1/6 -> 2/6 upgrade only (Gilded crests)
-            [2] = 190,  -- Base cost for 2/6 -> 3/6 upgrade only (Gilded crests)
-            [3] = 190,  -- Base cost for 3/6 -> 4/6 upgrade only (Gilded crests)
-            [4] = 190,  -- Base cost for 4/6 -> 5/6 upgrade only (Gilded crests)
-            [5] = 190   -- Base cost for 5/6 -> 6/6 upgrade only (Gilded crests)
+            [1] = 190,  -- Base cost for 1/8 -> 2/8 upgrade only (Gilded crests)
+            [2] = 190,  -- Base cost for 2/8 -> 3/8 upgrade only (Gilded crests)
+            [3] = 190,  -- Base cost for 3/8 -> 4/8 upgrade only (Gilded crests)
+            [4] = 190,  -- Base cost for 4/8 -> 5/8 upgrade only (Gilded crests)
+            [5] = 190,  -- Base cost for 5/8 -> 6/8 upgrade only (Gilded crests)
+            [6] = 190,  -- Base cost for 6/8 -> 7/8 upgrade only (Gilded crests)
+            [7] = 190   -- Base cost for 7/8 -> 8/8 upgrade only (Gilded crests)
         },
-        totalToMax = 950,   -- Total of all 5 upgrades (190*5)
-        upgradeLevels = 6,  -- Shows as X/6 in game
-        maxUpgrades = 5,    -- Actually 5 upgrades from 1/6 to 6/6
+        totalToMax = 1330,  -- Total of all 7 upgrades (190*7)
+        upgradeLevels = 8,  -- Shows as X/8 in game
+        maxUpgrades = 7,    -- Actually 7 upgrades from 1/8 to 8/8
         crestsStartAt = 1  -- Gilded crests needed from start
     }
 }

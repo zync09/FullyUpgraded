@@ -1,6 +1,0 @@
----
-description: Wow Addons
-globs: 
-alwaysApply: false
----
-Always use compatibility with Lua 5.1

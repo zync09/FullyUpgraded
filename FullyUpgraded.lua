@@ -134,6 +134,9 @@ titleText:SetPoint("TOPLEFT", masterFrame, "TOPLEFT", 8, -5)
 titleText:SetText("Fully Upgraded:")
 titleText:SetTextColor(1, 1, 0) -- Gold color
 
+-- Export titleText to addon namespace for updates
+addon.titleText = titleText
+
 -- Create Valorstones display in top right
 local valorFrame = CreateFrame("Frame", nil, masterFrame)
 valorFrame:SetSize(60, 20)
@@ -361,15 +364,20 @@ local function calculateUpgradedCrests()
                 CURRENCY.CRESTS[crestType].upgraded = data.upgraded
             end
         end
+        -- Also apply cached total upgrades if available
+        if upgradeCalculationsCache.totalUpgrades then
+            addon.totalUpgrades = upgradeCalculationsCache.totalUpgrades
+        end
         return false -- No changes made
     end
 
-    -- Reset upgraded counts
+    -- Reset upgraded counts and total upgrades
     for _, crestType in ipairs(CREST_ORDER) do
         if CURRENCY.CRESTS[crestType] then
             CURRENCY.CRESTS[crestType].upgraded = 0
         end
     end
+    addon.totalUpgrades = 0
 
     -- Get a temporary table from the pool
     local tempData = tablePool:acquire()
@@ -403,6 +411,8 @@ local function calculateUpgradedCrests()
     -- Release the temporary table back to the pool
     tablePool:release(tempData)
 
+    -- Store total upgrades in cache
+    upgradeCalculationsCache.totalUpgrades = addon.totalUpgrades or 0
     upgradeCalculationsCache.lastUpdate = currentTime
     return true -- Changes made
 end
@@ -443,10 +453,19 @@ local function updateDisplay(forceUpdate)
             if addon.updateAllUpgradeTexts then
                 addon.updateAllUpgradeTexts()
             end
-            
+
             -- Update currency display panel
             if addon.updateCrestCurrency and _G["GearUpgradeCurrencyFrame"] then
                 addon.updateCrestCurrency(_G["GearUpgradeCurrencyFrame"])
+            end
+
+            -- Update title with total upgrades
+            if addon.titleText and addon.totalUpgrades then
+                if addon.totalUpgrades > 0 then
+                    addon.titleText:SetText(string.format("Fully Upgraded in %d", addon.totalUpgrades))
+                else
+                    addon.titleText:SetText("Fully Upgraded")
+                end
             end
         end
 
@@ -666,6 +685,10 @@ local tooltipProviders = {
 
 -- Process a single upgrade track and update crest and valorstone requirements
 local function processUpgradeTrack(track, levelsToUpgrade, current, trackName)
+    -- Add to total upgrades counter
+    if levelsToUpgrade > 0 then
+        addon.totalUpgrades = (addon.totalUpgrades or 0) + levelsToUpgrade
+    end
     -- Calculate Valorstone costs
     if addon.VALORSTONE_COSTS and trackName then
         local trackUpper = trackName:upper()
