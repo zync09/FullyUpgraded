@@ -1,4 +1,4 @@
-## Interface: 120001
+## Interface: 120100
 ## Title: Fully Upgraded
 ## Notes: Track gear upgrades for Midnight - Shows upgrades needed, Dawncrest costs, gold costs, and M+ runs per item
 ## Author: Zyncx (Frostmourne)
