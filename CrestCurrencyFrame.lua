@@ -3,9 +3,6 @@ local addonName, addon = ...
 -- Import constants and references
 local CURRENCY = addon.CURRENCY
 local CREST_ORDER = addon.CREST_ORDER
-local TEXT_POSITIONS = addon.TEXT_POSITIONS
-
--- Use shared function from addon namespace
 
 -- Create display elements for a single crest type
 local function CreateCrestDisplay(parent)
@@ -205,7 +202,6 @@ local function updateCrestCurrency(parent)
     -- Use the existing frame from parent
     local frame = parent
     frame.displays = frame.displays or {}
-    frame.displayPool = frame.displayPool or {}
 
     -- Hide all existing displays and return them to pool
     for _, display in pairs(frame.displays) do
@@ -254,17 +250,7 @@ local function updateCrestCurrency(parent)
     end)
 end
 
--- Set up event handlers
-local function SetupEventHandlers()
-    -- Note: Frame visibility and currency events are handled by main event system in FullyUpgraded.lua
-    -- This avoids duplicate event registrations and hooks
-    -- Currency updates are triggered through the main UpdateDisplay() function
-end
-
 -- Export the update function
 addon.updateCrestCurrency = updateCrestCurrency
-
--- Initialize
-SetupEventHandlers()
 
 print("[FullyUpgraded] CrestCurrencyFrame.lua loaded (Midnight Edition)")

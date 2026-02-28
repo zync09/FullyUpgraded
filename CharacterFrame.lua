@@ -182,7 +182,7 @@ local function processUpgradeableItem(button, track, trackName, currentNum, maxN
         }
     end
 
-    addon.processUpgradeTrack(track, levelsToUpgrade, currentNum, trackName)
+    addon.processUpgradeTrack(track, levelsToUpgrade, trackName)
 end
 
 -- Process a fully upgraded item

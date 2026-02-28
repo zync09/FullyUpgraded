@@ -165,6 +165,15 @@ addon.CREST_BASE = {
     }
 }
 
+-- Reverse lookup: shortCode → crestType key (e.g. "A" → "ADVENTURER")
+addon.CREST_BY_SHORTCODE = (function()
+    local lookup = {}
+    for crestType, data in pairs(addon.CREST_BASE) do
+        lookup[data.shortCode] = crestType
+    end
+    return lookup
+end)()
+
 -- Generate CREST_ORDER from CREST_BASE
 addon.CREST_ORDER = (function()
     local order = {}

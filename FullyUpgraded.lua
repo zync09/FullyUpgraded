@@ -6,8 +6,6 @@ local f = addon.f
 local CRESTS_TO_UPGRADE = addon.CRESTS_TO_UPGRADE
 local CRESTS_CONVERSION_UP = addon.CRESTS_CONVERSION_UP
 local SEASONS = addon.SEASONS
-local EQUIPMENT_SLOTS = addon.EQUIPMENT_SLOTS
-local CREST_REWARDS = addon.CREST_REWARDS
 local CURRENCY = addon.CURRENCY
 local TEXT_POSITIONS = addon.TEXT_POSITIONS
 local CREST_ORDER = addon.CREST_ORDER
@@ -24,23 +22,6 @@ local upgradeCalculationsCache = {
 }
 local tooltipCache = setmetatable({}, { __mode = "v" })      -- Weak values for tooltip cache
 local itemCache = setmetatable({}, { __mode = "v" })         -- Weak values for item cache
--- Optimization: Create object pool for frames
-local framePool = CreateFramePool("Frame")
-
--- Object pool for reusable tables
-local tablePool = {
-    pool = setmetatable({}, { __mode = "k" }),
-    acquire = function(self)
-        local tbl = next(self.pool) or {}
-        self.pool[tbl] = nil
-        return tbl
-    end,
-    release = function(self, tbl)
-        if type(tbl) ~= "table" then return end
-        wipe(tbl)
-        self.pool[tbl] = true
-    end
-}
 
 -- Create master frame that will contain the display
 local masterFrame = CreateFrame("Button", "GearUpgradeMasterFrame", CharacterFrame, "BackdropTemplate")
@@ -143,7 +124,6 @@ local function InitializeSavedVariables()
     if FullyUpgradedDB.textVisible == nil then
         FullyUpgradedDB.textVisible = true
     end
-    currentTextPos = FullyUpgradedDB.textPosition or "TOP"
 end
 
 -- UpdateTextPositions delegates to CharacterFrame's version which handles
@@ -270,8 +250,7 @@ local function calculateUpgradedCrests()
     end
     addon.totalUpgrades = 0
 
-    -- Get a temporary table from the pool
-    local tempData = tablePool:acquire()
+    local tempData = {}
 
     -- Calculate upgrades starting from second crest type
     for i = 2, #CREST_ORDER do
@@ -298,9 +277,6 @@ local function calculateUpgradedCrests()
             upgraded = upgradedCount
         }
     end
-
-    -- Release the temporary table back to the pool
-    tablePool:release(tempData)
 
     -- Store total upgrades in cache
     upgradeCalculationsCache.totalUpgrades = addon.totalUpgrades or 0
@@ -335,17 +311,8 @@ local function updateDisplay(forceUpdate)
             end
 
             -- Update currency display panel
-            if addon.updateCrestCurrency and _G["GearUpgradeCurrencyFrame"] then
-                addon.updateCrestCurrency(_G["GearUpgradeCurrencyFrame"])
-            end
-
-            -- Update title with total upgrades
-            if addon.titleText and addon.totalUpgrades then
-                if addon.totalUpgrades > 0 then
-                    addon.titleText:SetText(string.format("Fully Upgraded in %d", addon.totalUpgrades))
-                else
-                    addon.titleText:SetText("Fully Upgraded")
-                end
+            if addon.updateCrestCurrency and currencyFrame then
+                addon.updateCrestCurrency(currencyFrame)
             end
         end
 
@@ -430,63 +397,62 @@ local tooltipProviders = {
             GameTooltip:AddLine("Needed: " .. crestData.needed, 1, 0.82, 0)
         end
 
-        -- Add crest information
-        for crestType, baseData in pairs(addon.CREST_BASE) do
-            if baseData.shortCode == crestData.reallyshortname then
-                GameTooltip:AddLine(" ")
-                GameTooltip:AddLine("Sources:", 0.9, 0.7, 0)
-                for _, source in ipairs(baseData.sources) do
-                    GameTooltip:AddLine("• " .. source, 0.8, 0.8, 0.8)
-                end
+        -- Add crest information via direct lookup
+        local crestType = addon.CREST_BY_SHORTCODE[crestData.reallyshortname]
+        local baseData = crestType and addon.CREST_BASE[crestType]
+        if baseData then
+            GameTooltip:AddLine(" ")
+            GameTooltip:AddLine("Sources:", 0.9, 0.7, 0)
+            for _, source in ipairs(baseData.sources) do
+                GameTooltip:AddLine("• " .. source, 0.8, 0.8, 0.8)
+            end
 
-                -- Add raid rewards section
+            -- Add raid rewards section
+            GameTooltip:AddLine(" ")
+            GameTooltip:AddLine("Raid Rewards:", 0.9, 0.7, 0)
+            for raidName, raidData in pairs(addon.RAID_REWARDS) do
+                for difficulty, rewardType in pairs(raidData.difficulties) do
+                    if rewardType == crestType then
+                        GameTooltip:AddLine(string.format("%s (%s):", raidData.name, difficulty), 0.9, 0.9, 0.9)
+                        local totalCrests = 0
+                        for _, boss in ipairs(raidData.bosses) do
+                            GameTooltip:AddLine(string.format("• %s: |cFF00FF00%d|r crests", boss.name, boss.reward), 0.8, 0.8, 0.8)
+                            totalCrests = totalCrests + boss.reward
+                        end
+                        GameTooltip:AddLine(string.format("Total potential crests: |cFF00FF00%d|r", totalCrests), 0.8, 0.8, 0.8)
+                    end
+                end
+            end
+
+            -- Add dungeon rewards if this crest type has mythic requirements
+            if baseData.mythicLevel and baseData.mythicLevel > 0 then
                 GameTooltip:AddLine(" ")
-                GameTooltip:AddLine("Raid Rewards:", 0.9, 0.7, 0)
-                for raidName, raidData in pairs(addon.RAID_REWARDS) do
-                    for difficulty, rewardType in pairs(raidData.difficulties) do
-                        if rewardType == crestType then
-                            GameTooltip:AddLine(string.format("%s (%s):", raidData.name, difficulty), 0.9, 0.9, 0.9)
-                            local totalCrests = 0
-                            for _, boss in ipairs(raidData.bosses) do
-                                GameTooltip:AddLine(string.format("• %s: |cFF00FF00%d|r crests", boss.name, boss.reward), 0.8, 0.8, 0.8)
-                                totalCrests = totalCrests + boss.reward
-                            end
-                            GameTooltip:AddLine(string.format("Total potential crests: |cFF00FF00%d|r", totalCrests), 0.8, 0.8, 0.8)
+                GameTooltip:AddLine("Mythic+ Rewards:", 0.9, 0.7, 0)
+
+                local rewards = addon.CREST_REWARDS[crestType]
+                if rewards then
+                    local remaining = crestData.needed and math.max(0, crestData.needed - crestData.current - (crestData.upgraded or 0)) or 0
+
+                    for level = baseData.mythicLevel, 15 do
+                        if rewards[level] then
+                            local rewardAmount = rewards[level].timed
+                            local runsNeeded = remaining > 0 and math.ceil(remaining / rewardAmount) or 0
+
+                            local levelText = string.format("|cFF%sM+%d|r", baseData.color, level)
+                            local rewardText = string.format("|cFF00FF00%d|r crests", rewardAmount)
+                            local runsText = remaining > 0 and string.format("(%d runs needed)", runsNeeded) or ""
+
+                            GameTooltip:AddLine(string.format("%s: %s %s", levelText, rewardText, runsText), 1, 1, 1, true)
                         end
                     end
                 end
-
-                -- Add dungeon rewards if this crest type has mythic requirements
-                if baseData.mythicLevel and baseData.mythicLevel > 0 then
-                    GameTooltip:AddLine(" ")
-                    GameTooltip:AddLine("Mythic+ Rewards:", 0.9, 0.7, 0)
-
-                    local rewards = addon.CREST_REWARDS[crestType]
-                    if rewards then
-                        local remaining = crestData.needed and math.max(0, crestData.needed - crestData.current - (crestData.upgraded or 0)) or 0
-
-                        for level = baseData.mythicLevel, 15 do
-                            if rewards[level] then
-                                local rewardAmount = rewards[level].timed
-                                local runsNeeded = remaining > 0 and math.ceil(remaining / rewardAmount) or 0
-
-                                local levelText = string.format("|cFF%sM+%d|r", baseData.color, level)
-                                local rewardText = string.format("|cFF00FF00%d|r crests", rewardAmount)
-                                local runsText = remaining > 0 and string.format("(%d runs needed)", runsNeeded) or ""
-
-                                GameTooltip:AddLine(string.format("%s: %s %s", levelText, rewardText, runsText), 1, 1, 1, true)
-                            end
-                        end
-                    end
-                end
-                break
             end
         end
     end
 }
 
 -- Process a single upgrade track (SIMPLIFIED for Midnight - no split upgrades, no valorstones)
-local function processUpgradeTrack(track, levelsToUpgrade, current, trackName)
+local function processUpgradeTrack(track, levelsToUpgrade, trackName)
     -- Add to total upgrades counter
     if levelsToUpgrade > 0 then
         addon.totalUpgrades = (addon.totalUpgrades or 0) + levelsToUpgrade
@@ -805,7 +771,6 @@ local function CleanupAddon()
     wipe(itemCache)
     wipe(currencyCache)
     wipe(upgradeCalculationsCache.data)
-    framePool:ReleaseAll()
     collectgarbage("collect")
 end
 
@@ -829,7 +794,6 @@ addon.updateDisplay = updateDisplay
 addon.showTooltip = showTooltip
 addon.hideTooltip = hideTooltip
 addon.tooltipProviders = tooltipProviders
-addon.setUpgradeTooltip = function(self, tooltipInfo) tooltipProviders.upgrade(tooltipInfo) end
 addon.processUpgradeTrack = processUpgradeTrack
 addon.getCachedTooltipData = getCachedTooltipData
 addon.getCachedItemInfo = getCachedItemInfo
