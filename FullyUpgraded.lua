@@ -23,10 +23,10 @@ local tooltipCache = setmetatable({}, { __mode = "v" })      -- Weak values for 
 local itemCache = setmetatable({}, { __mode = "v" })         -- Weak values for item cache
 
 -- Create master frame that will contain the display
-local masterFrame = CreateFrame("Button", "GearUpgradeMasterFrame", CharacterFrame, "BackdropTemplate")
+local masterFrame = CreateFrame("Frame", "GearUpgradeMasterFrame", CharacterFrame, "BackdropTemplate")
 masterFrame:SetPoint("TOPRIGHT", CharacterFrame, "BOTTOMRIGHT", 0, 0)
 masterFrame:SetSize(addon.MASTER_FRAME_MIN_WIDTH, 100)
-masterFrame:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+masterFrame:EnableMouse(true)
 
 -- Function to update master frame size
 local function updateMasterFrameSize()
@@ -40,7 +40,7 @@ local function updateMasterFrameSize()
     -- Set master frame size based on content plus padding
     masterFrame:SetSize(
         math.max(addon.MASTER_FRAME_MIN_WIDTH, currencyWidth + padding * 2),
-        titleHeight + currencyHeight + padding * 2
+        titleHeight + currencyHeight + padding * 2 + 18
     )
 end
 
@@ -58,7 +58,7 @@ masterFrame:SetBackdropColor(0.1, 0.1, 0.1, 0.95)
 masterFrame:SetBackdropBorderColor(0, 0, 0, 1)
 
 -- Add click handler for sharing and options
-masterFrame:SetScript("OnClick", function(self, button)
+masterFrame:SetScript("OnMouseUp", function(self, button)
     if button == "LeftButton" then
         shareUpgradeNeeds()
     elseif button == "RightButton" then
@@ -323,6 +323,19 @@ local function updateDisplay(forceUpdate)
 end
 
 -- **UNIFIED TOOLTIP SYSTEM**
+local function setTooltipBackdropColor(r, g, b, a)
+    if GameTooltip.NineSlice then
+        for _, region in pairs({GameTooltip.NineSlice:GetRegions()}) do
+            if region:IsObjectType("Texture") then
+                region:SetVertexColor(r, g, b, a)
+            end
+        end
+    end
+    if GameTooltip.SetBackdropColor then
+        GameTooltip:SetBackdropColor(r, g, b, a)
+    end
+end
+
 local function showTooltip(owner, anchorPoint, contentProvider, data)
     if not owner or not owner:IsVisible() then return end
     if not addon.isCharacterTabSelected() then return end
@@ -335,10 +348,12 @@ local function showTooltip(owner, anchorPoint, contentProvider, data)
     end
 
     GameTooltip:Show()
+    setTooltipBackdropColor(0.05, 0.05, 0.05, 0.95)
 end
 
 local function hideTooltip()
     GameTooltip:Hide()
+    setTooltipBackdropColor(0.09, 0.09, 0.09, 1)
 end
 
 -- Content providers for different tooltip types
@@ -390,7 +405,8 @@ local tooltipProviders = {
 
         GameTooltip:AddLine(info.name)
         GameTooltip:AddLine("Current: " .. (info.quantity or 0), 1, 1, 1)
-        GameTooltip:AddLine("Weekly Cap: " .. (crestData.weeklyCap or 100), 0.8, 0.8, 0.8)
+        local weeklyCap = (info.maxWeeklyQuantity and info.maxWeeklyQuantity > 0) and info.maxWeeklyQuantity or (crestData.weeklyCap or 100)
+        GameTooltip:AddLine("Weekly Cap: " .. weeklyCap, 0.8, 0.8, 0.8)
 
         if crestData.needed and crestData.needed > 0 then
             GameTooltip:AddLine("Needed: " .. crestData.needed, 1, 0.82, 0)
@@ -409,10 +425,16 @@ local tooltipProviders = {
             -- Add raid rewards section
             GameTooltip:AddLine(" ")
             GameTooltip:AddLine("Raid Rewards:", 0.9, 0.7, 0)
+            local firstRaid = true
             for raidName, raidData in pairs(addon.RAID_REWARDS) do
                 for difficulty, rewardType in pairs(raidData.difficulties) do
                     if rewardType == crestType then
-                        GameTooltip:AddLine(string.format("%s (%s):", raidData.name, difficulty), 0.9, 0.9, 0.9)
+                        if not firstRaid then
+                            GameTooltip:AddLine(" ")
+                        end
+                        firstRaid = false
+                        local rgb = baseData.colorRGB
+                        GameTooltip:AddLine(string.format("%s (%s):", raidData.name, difficulty), rgb[1], rgb[2], rgb[3])
                         local totalCrests = 0
                         for _, boss in ipairs(raidData.bosses) do
                             GameTooltip:AddLine(string.format("• %s: |cFF00FF00%d|r crests", boss.name, boss.reward), 0.8, 0.8, 0.8)

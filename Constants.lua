@@ -12,7 +12,7 @@ addon.TOOLTIP_CACHE_TTL = 5            -- Tooltip cache time-to-live in seconds
 -- UI settings
 addon.FONT_SIZE = 12
 addon.FONT_FLAGS = "OUTLINE, THICKOUTLINE"
-addon.FRAME_PADDING = 8
+addon.FRAME_PADDING = 12
 addon.MASTER_FRAME_MIN_WIDTH = 230
 addon.CURRENCY_FRAME_HEIGHT = 20
 addon.CURRENCY_FRAME_WIDTH = 140
@@ -90,10 +90,10 @@ addon.CREST_BASE = {
         color = "0070dd",  -- Blue
         colorRGB = { 0, 0.439, 0.867 },
         currencyID = 3343,
-        mythicLevel = 2,  -- Mythic+ 2-3
+        mythicLevel = 0,  -- Not from Mythic+
         sources = {
             "Normal Raid",
-            "Mythic+ 2-3",
+            "Mythic 0 Dungeons",
             "Delves (High Tiers)"
         },
         upgradesTo = "HERO"
@@ -104,10 +104,10 @@ addon.CREST_BASE = {
         color = "a335ee",  -- Purple
         colorRGB = { 0.639, 0.208, 0.933 },
         currencyID = 3345,
-        mythicLevel = 4,  -- Mythic+ 4-8
+        mythicLevel = 2,  -- Mythic+ 2-6
         sources = {
             "Heroic Raid",
-            "Mythic+ 4-8"
+            "Mythic+ 2-6"
         },
         upgradesTo = "MYTH"
     },
@@ -117,10 +117,10 @@ addon.CREST_BASE = {
         color = "ff8000",  -- Orange
         colorRGB = { 1, 0.502, 0 },
         currencyID = 3347,
-        mythicLevel = 9,  -- Mythic+ 9+
+        mythicLevel = 7,  -- Mythic+ 7+
         sources = {
             "Mythic Raid",
-            "Mythic+ 9+"
+            "Mythic+ 7+"
         },
         upgradesTo = nil
     }
@@ -188,28 +188,21 @@ addon.GOLD_COSTS = {
     MYTH = 50
 }
 
--- Crest rewards from Mythic+ (Midnight values)
--- Note: These are approximate and may need adjustment based on live data
+-- Crest rewards from Mythic+ (Midnight Season 1 - from Wowhead)
+-- Hero Dawncrests from M+ 2-6, Myth Dawncrests from M+ 7-10+
 addon.CREST_REWARDS = {
-    CHAMPION = {
-        [2] = { timed = 20, untimed = 16 },
-        [3] = { timed = 24, untimed = 20 }
-    },
     HERO = {
-        [4] = { timed = 20, untimed = 16 },
-        [5] = { timed = 24, untimed = 20 },
-        [6] = { timed = 28, untimed = 24 },
-        [7] = { timed = 32, untimed = 28 },
-        [8] = { timed = 36, untimed = 32 }
+        [2] = { timed = 10 },
+        [3] = { timed = 12 },
+        [4] = { timed = 14 },
+        [5] = { timed = 16 },
+        [6] = { timed = 18 }
     },
     MYTH = {
-        [9] = { timed = 20, untimed = 16 },
-        [10] = { timed = 24, untimed = 20 },
-        [11] = { timed = 28, untimed = 24 },
-        [12] = { timed = 32, untimed = 28 },
-        [13] = { timed = 36, untimed = 32 },
-        [14] = { timed = 40, untimed = 36 },
-        [15] = { timed = 44, untimed = 40 }
+        [7] = { timed = 10 },
+        [8] = { timed = 12 },
+        [9] = { timed = 14 },
+        [10] = { timed = 16 }
     }
 }
 
@@ -238,20 +231,48 @@ addon.UPGRADE_TRACKS = (function()
 end)()
 
 -- Raid boss rewards information (Midnight Season 1)
--- Note: These values may need adjustment based on live data
+-- Per-boss crest amounts are estimated until live data is available
 addon.RAID_REWARDS = {
-    -- Placeholder for Midnight raid data
-    -- Update with actual raid name and boss information when available
-    MIDNIGHT_RAID = {
-        name = "Midnight Season 1 Raid",
+    THE_VOIDSPIRE = {
+        name = "The Voidspire",
         difficulties = {
+            LFR = "VETERAN",
             NORMAL = "CHAMPION",
             HEROIC = "HERO",
             MYTHIC = "MYTH"
         },
         bosses = {
-            { name = "Boss 1-6", reward = 15 },
-            { name = "Boss 7-8", reward = 20 }
+            { name = "Imperator Averzian", reward = 10 },
+            { name = "Vorasius", reward = 10 },
+            { name = "Fallen-King Salhadaar", reward = 10 },
+            { name = "Vaelgor & Ezzorak", reward = 10 },
+            { name = "Lightblinded Vanguard", reward = 10 },
+            { name = "Crown of the Cosmos", reward = 15 }
+        }
+    },
+    THE_DREAMRIFT = {
+        name = "The Dreamrift",
+        difficulties = {
+            LFR = "VETERAN",
+            NORMAL = "CHAMPION",
+            HEROIC = "HERO",
+            MYTHIC = "MYTH"
+        },
+        bosses = {
+            { name = "Chimaerus the Undreamt God", reward = 15 }
+        }
+    },
+    MARCH_ON_QUELDANAS = {
+        name = "March on Quel'Danas",
+        difficulties = {
+            LFR = "VETERAN",
+            NORMAL = "CHAMPION",
+            HEROIC = "HERO",
+            MYTHIC = "MYTH"
+        },
+        bosses = {
+            { name = "Belo'ren, Child of Al'ar", reward = 10 },
+            { name = "Midnight Falls", reward = 15 }
         }
     }
 }

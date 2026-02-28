@@ -230,22 +230,24 @@ local function updateCrestCurrency(parent)
     -- Update each crest display
     local index = 1
 
-    -- Display crests in order from CREST_ORDER (Adventurer → Myth)
+    -- Display crests in order from CREST_ORDER (Veteran → Myth, skip Adventurer)
     for _, crestType in ipairs(CREST_ORDER) do
-        local crestData = CURRENCY.CRESTS[crestType]
-        if crestData and crestData.currencyID then
-            local success, info = pcall(C_CurrencyInfo.GetCurrencyInfo, crestData.currencyID)
-            if success and info then
-                -- Create or get existing display
-                if not frame.displays[crestType] then
-                    frame.displays[crestType] = CreateCrestDisplay(frame)
-                end
+        if crestType ~= "ADVENTURER" then
+            local crestData = CURRENCY.CRESTS[crestType]
+            if crestData and crestData.currencyID then
+                local success, info = pcall(C_CurrencyInfo.GetCurrencyInfo, crestData.currencyID)
+                if success and info then
+                    -- Create or get existing display
+                    if not frame.displays[crestType] then
+                        frame.displays[crestType] = CreateCrestDisplay(frame)
+                    end
 
-                local display = frame.displays[crestType]
-                if display then
-                    UpdateCrestDisplay(display, info, crestData, crestType)
-                    PositionCrestDisplay(display, frame, index)
-                    index = index + 1
+                    local display = frame.displays[crestType]
+                    if display then
+                        UpdateCrestDisplay(display, info, crestData, crestType)
+                        PositionCrestDisplay(display, frame, index)
+                        index = index + 1
+                    end
                 end
             end
         end
