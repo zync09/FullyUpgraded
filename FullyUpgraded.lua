@@ -12,14 +12,6 @@ local CURRENCY = addon.CURRENCY
 local TEXT_POSITIONS = addon.TEXT_POSITIONS
 local CREST_ORDER = addon.CREST_ORDER
 local UPGRADE_TRACKS = addon.UPGRADE_TRACKS
-local GOLD_COSTS = addon.GOLD_COSTS
-
--- Cache frequently used math functions
-local format = string.format
-local floor = math.floor
-local ceil = math.ceil
-local min = math.min
-local max = math.max
 
 -- Optimization: Create a single tooltip frame and reuse it
 local tooltipFrame = CreateFrame("GameTooltip", "GearUpgradeTooltip", UIParent, "GameTooltipTemplate")
@@ -75,16 +67,6 @@ end
 -- Export the function so it can be called from currency frame
 masterFrame.updateFrameSize = updateMasterFrameSize
 
--- Add a timer to update sizes after text rendering
-local function DelayedSizeUpdate()
-    C_Timer.After(0.1, function()
-        updateMasterFrameSize()
-        if addon.updateCrestCurrency then
-            addon.updateCrestCurrency(currencyFrame)
-        end
-    end)
-end
-
 masterFrame:SetBackdrop({
     bgFile = "Interface/Buttons/WHITE8x8",
     edgeFile = "Interface/Buttons/WHITE8x8",
@@ -95,12 +77,21 @@ masterFrame:SetBackdrop({
 masterFrame:SetBackdropColor(0.1, 0.1, 0.1, 0.95)
 masterFrame:SetBackdropBorderColor(0, 0, 0, 1)
 
--- Add click handler for sharing
+-- Add click handler for sharing and options
 masterFrame:SetScript("OnClick", function(self, button)
     if button == "LeftButton" then
         shareUpgradeNeeds()
     elseif button == "RightButton" then
-        print("|cFFFFFF00FullyUpgraded:|r Right-click options coming soon!")
+        if not masterFrame.optionsFrame and addon.CreateOptionsFrame then
+            masterFrame.optionsFrame = addon.CreateOptionsFrame(masterFrame)
+        end
+        if masterFrame.optionsFrame then
+            if masterFrame.optionsFrame:IsShown() then
+                masterFrame.optionsFrame:Hide()
+            else
+                masterFrame.optionsFrame:Show()
+            end
+        end
     end
 end)
 
@@ -109,7 +100,7 @@ masterFrame:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_TOP")
     GameTooltip:AddLine("Fully Upgraded")
     GameTooltip:AddLine("Left-click to share upgrade needs in chat", 0.8, 0.8, 0.8)
-    GameTooltip:AddLine("Use /fu for more options", 0.8, 0.8, 0.8)
+    GameTooltip:AddLine("Right-click for options", 0.8, 0.8, 0.8)
     GameTooltip:Show()
 end)
 
@@ -155,25 +146,14 @@ local function InitializeSavedVariables()
     currentTextPos = FullyUpgradedDB.textPosition or "TOP"
 end
 
--- Function to update text positions with saving
-local function updateTextPositions(newPosition)
-    if TEXT_POSITIONS[newPosition] then
-        currentTextPos = newPosition
-        FullyUpgradedDB.textPosition = newPosition
-
-        -- Update all existing texts
-        for slot, button in pairs(addon.upgradeTextPool) do
-            if button then
-                local posData = TEXT_POSITIONS[currentTextPos]
-                button:ClearAllPoints()
-                button:SetPoint(posData.point, button.slotFrame, posData.point, posData.x, posData.y)
-            end
-        end
+-- UpdateTextPositions delegates to CharacterFrame's version which handles
+-- repositioning, background strips, and re-rendering equipment slots.
+-- Set as a late-binding wrapper since CharacterFrame.lua loads after this file.
+addon.UpdateTextPositions = function(newPosition)
+    if addon.updateTextPositions then
+        addon.updateTextPositions(newPosition)
     end
 end
-
--- Export UpdateTextPositions to addon namespace
-addon.UpdateTextPositions = updateTextPositions
 
 -- Check currency for all crests with caching
 local function checkCurrencyForAllCrests()
@@ -736,8 +716,9 @@ end
 local function setTextVisibility(visible)
     FullyUpgradedDB.textVisible = visible
 
-    if addon.SetTextVisibility then
-        addon.SetTextVisibility(visible)
+    -- Delegate to CharacterFrame's version for UI updates
+    if addon.setTextVisibility then
+        addon.setTextVisibility(visible)
     end
 
     if visible and addon.updateAllUpgradeTexts then
@@ -745,7 +726,7 @@ local function setTextVisibility(visible)
     end
 end
 
--- Export SetTextVisibility to addon namespace
+-- Export as SetTextVisibility (capital S) for OptionsFrame
 addon.SetTextVisibility = setTextVisibility
 
 -- Add slash command handler

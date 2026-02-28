@@ -100,7 +100,7 @@ local function UpdateFrameSize(frame, displayCount)
 end
 
 -- Update a single crest display
-local function UpdateCrestDisplay(display, info, crestData)
+local function UpdateCrestDisplay(display, info, crestData, crestType)
     if not display or not info then return end
 
     -- Update shortName (first letter of crest type)
@@ -108,16 +108,11 @@ local function UpdateCrestDisplay(display, info, crestData)
     display.shortName:SetText(shortName)
 
     -- Set color from CREST_BASE using pre-computed RGB values
-    local crestBaseData
-    for crestType, baseData in pairs(addon.CREST_BASE) do
-        if baseData.shortCode == crestData.reallyshortname then
-            local rgb = baseData.colorRGB
-            display.shortName:SetTextColor(rgb[1], rgb[2], rgb[3])
-            display.count:SetTextColor(rgb[1], rgb[2], rgb[3])
-            crestBaseData = baseData
-            crestBaseData.crestType = crestType
-            break
-        end
+    local crestBaseData = addon.CREST_BASE[crestType]
+    if crestBaseData then
+        local rgb = crestBaseData.colorRGB
+        display.shortName:SetTextColor(rgb[1], rgb[2], rgb[3])
+        display.count:SetTextColor(rgb[1], rgb[2], rgb[3])
     end
 
     -- Update icon
@@ -136,11 +131,11 @@ local function UpdateCrestDisplay(display, info, crestData)
         -- Only show runs if we need more crests
         if current < needed then
             -- Get rewards for this crest type
-            local rewards = addon.CREST_REWARDS[crestBaseData.crestType]
+            local rewards = addon.CREST_REWARDS[crestType]
 
             -- Debug output
             if addon.debugMode then
-                print("Crest Type:", crestBaseData.crestType)
+                print("Crest Type:", crestType)
                 print("Has Rewards:", rewards ~= nil)
                 print("Mythic Level:", crestBaseData.mythicLevel)
                 print("Current/Needed:", current, "/", needed)
@@ -238,7 +233,7 @@ local function updateCrestCurrency(parent)
 
                 local display = frame.displays[crestType]
                 if display then
-                    UpdateCrestDisplay(display, info, crestData)
+                    UpdateCrestDisplay(display, info, crestData, crestType)
                     PositionCrestDisplay(display, frame, index)
                     index = index + 1
                 end
