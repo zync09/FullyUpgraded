@@ -128,3 +128,5 @@ end
 
 -- Export the create function to the addon namespace
 addon.CreateOptionsFrame = CreateOptionsFrame
+
+print("[FullyUpgraded] OptionsFrame.lua loaded")

@@ -226,7 +226,7 @@ local function updateCrestCurrency(parent)
         if display.runsNeeded then display.runsNeeded:Hide() end
     end
 
-    -- Count how many displays we'll have (crests only, Valorstones moved to header)
+    -- Count how many displays we'll have (Midnight: 5 Dawncrests)
     local displayCount = 0
     for _, crestType in ipairs(CREST_ORDER) do
         local crestData = CURRENCY.CRESTS[crestType]
@@ -238,7 +238,7 @@ local function updateCrestCurrency(parent)
     -- Update each crest display
     local index = 1
 
-    -- Display crests in order from CREST_ORDER (weathered to gilded)
+    -- Display crests in order from CREST_ORDER (Adventurer → Myth)
     for _, crestType in ipairs(CREST_ORDER) do
         local crestData = CURRENCY.CRESTS[crestType]
         if crestData and crestData.currencyID then
@@ -282,3 +282,5 @@ addon.updateCrestCurrency = updateCrestCurrency
 
 -- Initialize
 SetupEventHandlers()
+
+print("[FullyUpgraded] CrestCurrencyFrame.lua loaded (Midnight Edition)")

@@ -6,13 +6,13 @@ local TEXT_POSITIONS = addon.TEXT_POSITIONS
 local UPGRADE_TRACKS = addon.UPGRADE_TRACKS
 
 -- Local references to shared functions and data
-addon.upgradeTextPool = {}  -- Make upgradeTextPool accessible to the main file
+addon.upgradeTextPool = {}
 local upgradeTextPool = addon.upgradeTextPool
-local currentTextPos = "TR" -- Default position - top right with background
+local currentTextPos = "TOP" -- Default position
 
--- Font settings from constants (reduced by 15% from original, was 25%)
+-- Font settings from constants
 local fontFile = GameFontNormal:GetFont()
-local fontSize = math.floor(addon.FONT_SIZE * 0.85) -- 15% smaller font (10% larger than previous 0.75)
+local fontSize = math.floor(addon.FONT_SIZE * 0.85)
 local fontFlags = addon.FONT_FLAGS
 
 local function debugPrint(message)
@@ -28,31 +28,24 @@ local tooltipData = {}
 local showTooltip = addon.showTooltip
 local hideTooltip = addon.hideTooltip
 
--- **Update background strip to match text size and position**
+-- Update background strip to match text size and position
 local function updateBackgroundStrip(button)
     if not button or not button.text or not button.background then return end
-    
-    -- Get text dimensions for height
+
     local textHeight = button.text:GetStringHeight()
-    
+
     if textHeight > 0 then
-        -- Get gear icon width for full-width background (minus 2 pixels total, 1 on each side)
         local gearWidth = button.slotFrame:GetWidth() - 2
         local padding = addon.TEXT_BACKGROUND.padding or 2
         local stripHeight = textHeight + (padding * 2)
-        
-        -- Size the background to span gear width minus insets
+
         button.background:SetSize(gearWidth, stripHeight)
-        
-        -- Position background to match the button position
         button.background:ClearAllPoints()
         button.background:SetAllPoints(button)
-        
-        -- Size the button to match the background strip so tooltip only shows over the strip
+
         button:SetSize(gearWidth, stripHeight)
         button:ClearAllPoints()
-        
-        -- Position button based on current text position setting
+
         local positionData = TEXT_POSITIONS[currentTextPos]
         if positionData then
             if positionData.point == "TOP" then
@@ -62,28 +55,24 @@ local function updateBackgroundStrip(button)
             elseif positionData.point == "CENTER" then
                 button:SetPoint("CENTER", button.slotFrame, "CENTER", 0, 0)
             else
-                -- Fallback to top for legacy positions
                 button:SetPoint("TOP", button.slotFrame, "TOP", 0, -1)
             end
         else
-            -- Default to top
             button:SetPoint("TOP", button.slotFrame, "TOP", 0, -1)
         end
     end
 end
 
--- **Creates Upgrade Text for a Slot**
+-- Creates Upgrade Text for a Slot
 local function CreateUpgradeText(slot)
     local slotFrame = _G["Character" .. slot]
     if not slotFrame then return nil end
 
     local button = CreateFrame("Button", nil, slotFrame)
-    -- Button will be sized to match the text strip area, not the full gear slot
 
-    -- Create semi-transparent background strip for better text visibility
     local background = button:CreateTexture(nil, "BACKGROUND")
-    background:SetColorTexture(0, 0, 0, 0.28) -- 50% transparent white
-    background:Hide() -- Hidden by default, shown when text is displayed
+    background:SetColorTexture(0, 0, 0, 0.28)
+    background:Hide()
 
     local text = button:CreateFontString(nil, "OVERLAY")
     text:SetFont(fontFile, fontSize, fontFlags)
@@ -98,20 +87,17 @@ local function CreateUpgradeText(slot)
     button.slot = slot
     button.slotFrame = slotFrame
 
-    -- Make text span full button width and align to the right
     text:ClearAllPoints()
     text:SetPoint("LEFT", button, "LEFT", 2, 0)
     text:SetPoint("RIGHT", button, "RIGHT", -2, 0)
-    text:SetJustifyH("RIGHT")  -- Ensure right alignment
+    text:SetJustifyH("RIGHT")
 
-    -- Set initial visibility based on saved setting
     if FullyUpgradedDB and FullyUpgradedDB.textVisible ~= nil then
         if not FullyUpgradedDB.textVisible then
             button:Hide()
         end
     end
 
-    -- Set up tooltip handling using unified system
     button:SetScript("OnEnter", function(self)
         showTooltip(self, "ANCHOR_RIGHT", addon.tooltipProviders.upgrade, tooltipData[self.slot])
     end)
@@ -121,7 +107,7 @@ local function CreateUpgradeText(slot)
     return button
 end
 
--- **Initialize All Equipment Slot Overlays**
+-- Initialize All Equipment Slot Overlays
 local function initializeUpgradeTexts()
     if next(upgradeTextPool) then return end
 
@@ -149,23 +135,7 @@ local function cleanupUpgradeTexts()
     end
 end
 
--- Process a Season 1 item
-local function processSeason1Item(button)
-    local color = addon.TRACK_COLORS.SEASON1
-    button.text:SetText(string.format("|cFF%sS1|r", color))
-    
-    -- Update background strip to match text size
-    updateBackgroundStrip(button)
-    button.background:Show() -- Show background for better visibility
-    button:Show()
-
-    -- Store tooltip data
-    tooltipData[button.slot] = {
-        type = "season1"
-    }
-end
-
--- Process an upgradeable item
+-- Process an upgradeable item (SIMPLIFIED for Midnight - single crest type)
 local function processUpgradeableItem(button, track, trackName, currentNum, maxNum, levelsToUpgrade)
     if not button or not track or not trackName then
         return
@@ -173,18 +143,17 @@ local function processUpgradeableItem(button, track, trackName, currentNum, maxN
 
     local trackUpper = trackName:upper()
     local trackLetter = trackUpper:sub(1, 1)
-    
-    -- Get color for this track type, fallback to white if not found
+
+    -- Get color for this track type
     local color = addon.TRACK_COLORS[trackUpper] or "ffffff"
-    
+
     button.text:SetText(string.format("|cFF%s+%d%s|r", color, levelsToUpgrade, trackLetter))
-    
-    -- Update background strip to match text size
+
     updateBackgroundStrip(button)
-    button.background:Show() -- Show background for better visibility
+    button.background:Show()
     button:Show()
 
-    -- Calculate and store tooltip data
+    -- Simplified tooltip data - single crest type per track in Midnight
     tooltipData[button.slot] = {
         type = "upgradeable",
         track = track,
@@ -195,39 +164,18 @@ local function processUpgradeableItem(button, track, trackName, currentNum, maxN
         requirements = {}
     }
 
-    -- Calculate requirements
-    if track.splitUpgrade then
-        local firstTier = track.splitUpgrade.firstTier
-        local secondTier = track.splitUpgrade.secondTier
+    -- Midnight system: single crest type, flat cost
+    if track.crestType then
+        local crestType = track.crestType
+        local crestCurrency = addon.CURRENCY.CRESTS[crestType]
+        local goldCost = track.goldCost or 0
 
-        -- Validate tier data before processing
-        if firstTier and firstTier.levels and firstTier.shortname then
-            local remainingFirstTier = math.min(levelsToUpgrade, math.max(0, firstTier.levels - currentNum))
-            local remainingSecondTier = secondTier and math.max(0, levelsToUpgrade - remainingFirstTier) or 0
-
-            if remainingFirstTier > 0 and firstTier.crest then
-                local firstTierShortname = firstTier.shortname:upper()
-                local firstTierCurrency = addon.CURRENCY.CRESTS[firstTierShortname]
-
-                tooltipData[button.slot].requirements.firstTier = {
-                    crestType = firstTierShortname,
-                    count = remainingFirstTier * addon.CRESTS_TO_UPGRADE,
-                    mythicLevel = firstTierCurrency and firstTierCurrency.mythicLevel or 0
-                }
-            end
-
-            -- Only process second tier if it exists and has valid data
-            if remainingSecondTier > 0 and secondTier and secondTier.crest and secondTier.shortname then
-                local secondTierShortname = secondTier.shortname:upper()
-                local secondTierCurrency = addon.CURRENCY.CRESTS[secondTierShortname]
-
-                tooltipData[button.slot].requirements.secondTier = {
-                    crestType = secondTierShortname,
-                    count = remainingSecondTier * addon.CRESTS_TO_UPGRADE,
-                    mythicLevel = secondTierCurrency and secondTierCurrency.mythicLevel or 0
-                }
-            end
-        end
+        tooltipData[button.slot].requirements.standard = {
+            crestType = crestType,
+            count = levelsToUpgrade * addon.CRESTS_TO_UPGRADE,
+            mythicLevel = crestCurrency and crestCurrency.mythicLevel or 0,
+            goldCost = levelsToUpgrade * goldCost
+        }
     end
 
     addon.processUpgradeTrack(track, levelsToUpgrade, currentNum, trackName)
@@ -237,17 +185,14 @@ end
 local function processFullyUpgradedItem(button, trackName, currentNum, maxNum)
     local trackUpper = trackName:upper()
     local trackLetter = trackUpper:sub(1, 1)
-    
-    -- Use gold color for fully upgraded items
+
     local color = addon.TRACK_COLORS.FULLY_UPGRADED
     button.text:SetText(string.format("|cFF%s%s|r", color, trackLetter))
-    
-    -- Update background strip to match text size
+
     updateBackgroundStrip(button)
-    button.background:Show() -- Show background for better visibility
+    button.background:Show()
     button:Show()
 
-    -- Store tooltip data
     tooltipData[button.slot] = {
         type = "fullyUpgraded",
         trackName = trackName,
@@ -258,18 +203,16 @@ end
 
 -- Process equipment slot
 local function processEquipmentSlot(slot, button)
-    -- Make text span full button width and align to the right
     button.text:ClearAllPoints()
     button.text:SetPoint("LEFT", button, "LEFT", 2, 0)
     button.text:SetPoint("RIGHT", button, "RIGHT", -2, 0)
     button.text:SetJustifyH("RIGHT")
-    
+
     button.text:SetText("")
     if button.background then
-        button.background:Hide() -- Hide background by default
+        button.background:Hide()
     end
 
-    -- Ensure tooltip handlers are set using unified system
     button:SetScript("OnEnter", function(self)
         showTooltip(self, "ANCHOR_RIGHT", addon.tooltipProviders.upgrade, tooltipData[self.slot])
     end)
@@ -291,41 +234,28 @@ local function processEquipmentSlot(slot, button)
         local minIlvl, maxIlvl = addon.getCurrentSeasonItemLevelRange()
 
         if effectiveILvl >= minIlvl and effectiveILvl <= maxIlvl then
-            -- Check for Season 1 item
+            -- Process upgrade levels (Midnight uses X/6 format)
             for _, line in ipairs(tooltipData.lines) do
-                if line.leftText and line.leftText:find("The War Within Season 1") then
-                    processSeason1Item(button)
-                    shouldShow = true
-                    break
-                end
-            end
+                if line and line.leftText then
+                    local trackName, current, max = line.leftText:match("Upgrade Level: (%w+) (%d+)/(%d+)")
+                    if trackName then
+                        local trackUpper = trackName:upper()
+                        local currentNum = tonumber(current)
+                        local maxNum = tonumber(max)
 
-            -- Process upgrade levels for non-Season 1 items
-            if not shouldShow then
-                for _, line in ipairs(tooltipData.lines) do
-                    if line and line.leftText then
-                        local trackName, current, max = line.leftText:match("Upgrade Level: (%w+) (%d+)/(%d+)")
-                        if trackName then
-                            local trackUpper = trackName:upper()
-                            local currentNum = tonumber(current)
-                            local maxNum = tonumber(max)
-
-                            -- Check if we have valid numbers
-                            if currentNum and maxNum then
-                                -- Find the matching track
-                                local track = UPGRADE_TRACKS[trackUpper]
-                                if track then
-                                    shouldShow = true
-                                    if currentNum < maxNum then
-                                        processUpgradeableItem(button, track, trackName, currentNum, maxNum,
-                                            maxNum - currentNum)
-                                    else
-                                        processFullyUpgradedItem(button, trackName, currentNum, maxNum)
-                                    end
+                        if currentNum and maxNum then
+                            local track = UPGRADE_TRACKS[trackUpper]
+                            if track then
+                                shouldShow = true
+                                if currentNum < maxNum then
+                                    processUpgradeableItem(button, track, trackName, currentNum, maxNum,
+                                        maxNum - currentNum)
+                                else
+                                    processFullyUpgradedItem(button, trackName, currentNum, maxNum)
                                 end
                             end
-                            break
                         end
+                        break
                     end
                 end
             end
@@ -342,38 +272,30 @@ end
 
 -- Main update function for all upgrade texts
 local function updateAllUpgradeTexts()
-    -- Make sure we have text elements initialized
     if not next(upgradeTextPool) then
         initializeUpgradeTexts()
     end
-    
-    -- Ensure saved variables are loaded
+
     if not FullyUpgradedDB then
         FullyUpgradedDB = {
-            textPosition = "TOP",  -- Changed default to TOP
+            textPosition = "TOP",
             textVisible = true
         }
     end
     if FullyUpgradedDB.textVisible == nil then
         FullyUpgradedDB.textVisible = true
     end
-    
-    -- Load saved text position
+
     if FullyUpgradedDB.textPosition and TEXT_POSITIONS[FullyUpgradedDB.textPosition] then
         currentTextPos = FullyUpgradedDB.textPosition
     else
-        currentTextPos = "TOP"  -- Default to TOP
+        currentTextPos = "TOP"
         FullyUpgradedDB.textPosition = "TOP"
     end
 
     -- Reset needed counts
     for crestType, _ in pairs(addon.CURRENCY.CRESTS) do
         addon.CURRENCY.CRESTS[crestType].needed = 0
-    end
-    
-    -- Reset Valorstone needed count
-    if addon.CURRENCY.VALORSTONES then
-        addon.CURRENCY.VALORSTONES.needed = 0
     end
 
     -- Reset total upgrades counter
@@ -402,25 +324,21 @@ local function updateTextPositions(position)
     if not TEXT_POSITIONS[position] then return end
 
     currentTextPos = position
-    
-    -- Save the position to the database
+
     if FullyUpgradedDB then
         FullyUpgradedDB.textPosition = position
     end
 
     for slot, button in pairs(upgradeTextPool) do
         if button and button.slotFrame then
-            -- Make text span full button width and align to the right
             button.text:ClearAllPoints()
             button.text:SetPoint("LEFT", button, "LEFT", 2, 0)
             button.text:SetPoint("RIGHT", button, "RIGHT", -2, 0)
             button.text:SetJustifyH("RIGHT")
-            
-            -- Update background strip and button position
+
             if button.text:GetText() and button.text:GetText() ~= "" then
                 updateBackgroundStrip(button)
             else
-                -- Even if no text, position the button correctly for when text appears
                 button:ClearAllPoints()
                 local positionData = TEXT_POSITIONS[currentTextPos]
                 if positionData then
@@ -435,8 +353,7 @@ local function updateTextPositions(position)
                     end
                 end
             end
-            
-            -- Force refresh the slot to show the new position
+
             processEquipmentSlot(slot, button)
         end
     end
@@ -462,7 +379,6 @@ end
 -- Setup character frame hooks
 local function setupCharacterFrameHooks()
     local function doUpdate()
-        -- Use the main coordinated update system
         if addon.updateDisplay then
             addon.updateDisplay()
         end
@@ -481,22 +397,19 @@ local function setupCharacterFrameHooks()
     -- Optimized equipment update hook with proper debouncing
     local updatePending = false
     local lastUpdateTime = 0
-    local UPDATE_DEBOUNCE = 0.3  -- Wait 300ms to batch multiple updates
-    
+    local UPDATE_DEBOUNCE = 0.3
+
     if PaperDollItemSlotButton_Update then
         hooksecurefunc("PaperDollItemSlotButton_Update", function(button)
-            -- Early exit if not needed
             if not button or not addon.isCharacterTabSelected() then return end
             if not upgradeTextPool[button:GetName():gsub("Character", "")] then return end
-            
+
             local currentTime = GetTime()
-            
-            -- If we updated very recently, skip this update
+
             if currentTime - lastUpdateTime < 0.5 then
                 return
             end
-            
-            -- Batch multiple rapid updates
+
             if not updatePending then
                 updatePending = true
                 C_Timer.After(UPDATE_DEBOUNCE, function()
@@ -515,100 +428,8 @@ end
 local function initialize()
     debugPrint("Initializing character frame module...")
     setupCharacterFrameHooks()
-    -- Ensure upgrade texts are initialized when character frame is set up
     initializeUpgradeTexts()
     debugPrint("Character frame module initialized successfully")
-end
-
--- Update crest currency display
-local function updateCrestCurrency(frame)
-    if not frame then return end
-
-    -- Clear existing children
-    local children = { frame:GetChildren() }
-    for _, child in ipairs(children) do
-        child:Hide()
-        child:SetParent(nil)
-    end
-
-    -- First pass: calculate total width
-    local totalWidth = 0
-    local iconSize = 16
-    local spacing = 6 -- Spacing between currency groups
-    local elements = {}
-
-    -- Calculate widths and create elements
-    for _, crestType in ipairs(addon.CREST_ORDER) do
-        local crestData = addon.CURRENCY.CRESTS[crestType]
-        if crestData and crestData.currencyID then
-            local info = C_CurrencyInfo.GetCurrencyInfo(crestData.currencyID)
-            if info then
-                -- Create temporary font string to measure text width
-                local tempText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-                tempText:SetText(info.quantity)
-                local textWidth = tempText:GetStringWidth()
-                tempText:Hide()
-
-                -- Add to total width
-                totalWidth = totalWidth + iconSize + textWidth + 2 -- 2 for spacing between icon and text
-
-                -- Store element info
-                table.insert(elements, {
-                    crestType = crestType,
-                    info = info,
-                    textWidth = textWidth
-                })
-
-                -- Add separator width if not last
-                if _ < #addon.CREST_ORDER then
-                    totalWidth = totalWidth + spacing + 2 -- 2 for separator width
-                end
-            end
-        end
-    end
-
-    -- Calculate starting X position to center everything
-    local xOffset = (frame:GetWidth() - totalWidth) / 2
-    xOffset = frame:GetWidth() - xOffset -- Convert to right-side offset
-
-    -- Second pass: create and position elements
-    for i, element in ipairs(elements) do
-        -- Create icon
-        local icon = CreateFrame("Frame", nil, frame)
-        icon:SetSize(iconSize, iconSize)
-        icon:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -xOffset, 0)
-
-        local texture = icon:CreateTexture(nil, "ARTWORK")
-        texture:SetAllPoints()
-        texture:SetTexture(element.info.iconFileID)
-
-        -- Create count text
-        local count = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-        count:SetPoint("RIGHT", icon, "LEFT", -2, 0)
-        count:SetText(element.info.quantity)
-
-        -- Color based on CREST_BASE
-        local baseData = addon.CREST_BASE[element.crestType]
-        if baseData and baseData.color then
-            count:SetTextColor(
-                tonumber(baseData.color:sub(1, 2), 16) / 255,
-                tonumber(baseData.color:sub(3, 4), 16) / 255,
-                tonumber(baseData.color:sub(5, 6), 16) / 255
-            )
-        end
-
-        -- Update xOffset
-        xOffset = xOffset + iconSize + element.textWidth + 2
-
-        -- Add separator if not last
-        if i < #elements then
-            local separator = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-            separator:SetPoint("RIGHT", count, "LEFT", -2, 0)
-            separator:SetText("|")
-            separator:SetTextColor(0.5, 0.5, 0.5)
-            xOffset = xOffset + spacing + 2
-        end
-    end
 end
 
 -- Export functions to addon namespace
@@ -617,10 +438,6 @@ addon.updateAllUpgradeTexts = updateAllUpgradeTexts
 addon.updateTextPositions = updateTextPositions
 addon.setTextVisibility = setTextVisibility
 addon.upgradeTextPool = upgradeTextPool
-addon.updateCrestCurrency = updateCrestCurrency
 
--- Debug command is handled in main FullyUpgraded.lua file
-
--- Export initialize function, will be called from main FullyUpgraded.lua
-print("[FullyUpgraded] CharacterFrame.lua loaded, exporting initializeCharacterFrame")
+print("[FullyUpgraded] CharacterFrame.lua loaded (Midnight Edition)")
 addon.initializeCharacterFrame = initialize
