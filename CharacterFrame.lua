@@ -233,6 +233,7 @@ local function processEquipmentSlot(slot, button)
         local minIlvl, maxIlvl = addon.getCurrentSeasonItemLevelRange()
 
         if effectiveILvl >= minIlvl and effectiveILvl <= maxIlvl then
+            addon.seasonGearCount = (addon.seasonGearCount or 0) + 1
             -- Process upgrade levels (Midnight uses X/6 format)
             for _, line in ipairs(itemTooltip.lines) do
                 if line and line.leftText then
@@ -289,6 +290,7 @@ local function updateAllUpgradeTexts()
 
     -- Reset total upgrades counter
     addon.totalUpgrades = 0
+    addon.seasonGearCount = 0
 
     -- Process each equipment slot
     for _, slot in ipairs(EQUIPMENT_SLOTS) do
@@ -298,9 +300,11 @@ local function updateAllUpgradeTexts()
         end
     end
 
-    -- Update title with total upgrades
-    if addon.titleText and addon.totalUpgrades then
-        if addon.totalUpgrades > 0 then
+    -- Update title with total upgrades (three-state)
+    if addon.titleText then
+        if addon.seasonGearCount == 0 then
+            addon.titleText:SetText(string.format("Waiting for gear (%d+)", addon.SEASONS[1].MIN_ILVL))
+        elseif addon.totalUpgrades > 0 then
             addon.titleText:SetText(string.format("Fully Upgraded in %d", addon.totalUpgrades))
         else
             addon.titleText:SetText("Fully Upgraded")

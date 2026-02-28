@@ -131,7 +131,11 @@ local function UpdateCrestDisplay(display, info, crestData, crestType)
     -- Update count text (without runs calculation)
     local needed = crestData.needed or 0
     local current = info.quantity or 0
-    display.count:SetText(current .. "/" .. needed)
+    if addon.seasonGearCount == 0 then
+        display.count:SetText(tostring(current))
+    else
+        display.count:SetText(current .. "/" .. needed)
+    end
 
     -- Reset and update runs needed text
     display.runsNeeded:SetText("")

@@ -8,6 +8,8 @@ local SEASONS = addon.SEASONS
 local CURRENCY = addon.CURRENCY
 local CREST_ORDER = addon.CREST_ORDER
 
+addon.seasonGearCount = 0
+
 -- Optimization: Create a single tooltip frame and reuse it
 local tooltipFrame = CreateFrame("GameTooltip", "GearUpgradeTooltip", UIParent, "GameTooltipTemplate")
 
