@@ -107,18 +107,15 @@ local function UpdateCrestDisplay(display, info, crestData)
     local shortName = crestData.reallyshortname or ""
     display.shortName:SetText(shortName)
 
-    -- Set color from CREST_BASE using the exact crest type (WEATHERED, CARVED, etc)
+    -- Set color from CREST_BASE using pre-computed RGB values
     local crestBaseData
     for crestType, baseData in pairs(addon.CREST_BASE) do
         if baseData.shortCode == crestData.reallyshortname then
-            local r = tonumber(baseData.color:sub(1, 2), 16) / 255
-            local g = tonumber(baseData.color:sub(3, 4), 16) / 255
-            local b = tonumber(baseData.color:sub(5, 6), 16) / 255
-            -- Apply color to both shortName and count
-            display.shortName:SetTextColor(r, g, b)
-            display.count:SetTextColor(r, g, b)
+            local rgb = baseData.colorRGB
+            display.shortName:SetTextColor(rgb[1], rgb[2], rgb[3])
+            display.count:SetTextColor(rgb[1], rgb[2], rgb[3])
             crestBaseData = baseData
-            crestBaseData.crestType = crestType -- Store the actual crest type
+            crestBaseData.crestType = crestType
             break
         end
     end
@@ -189,13 +186,6 @@ local function UpdateCrestDisplay(display, info, crestData)
                     -- Ensure runs text is properly positioned
                     display.runsNeeded:ClearAllPoints()
                     display.runsNeeded:SetPoint("RIGHT", display.frame, "RIGHT", -5, 0)
-
-                    -- Add a timer to recalculate positions
-                    C_Timer.After(addon.POSITION_RECALC_TIME, function()
-                        if display.container:GetParent().updateFrameSize then
-                            display.container:GetParent():updateFrameSize()
-                        end
-                    end)
                 end
             end
         end
@@ -211,6 +201,12 @@ end
 
 -- Main update function for currency display
 local function updateCrestCurrency(parent)
+    -- Skip work if character tab isn't visible
+    if not addon.isCharacterTabSelected() then
+        parent:Hide()
+        return
+    end
+
     -- Use the existing frame from parent
     local frame = parent
     frame.displays = frame.displays or {}
@@ -224,15 +220,6 @@ local function updateCrestCurrency(parent)
         if display.icon then display.icon:Hide() end
         if display.count then display.count:Hide() end
         if display.runsNeeded then display.runsNeeded:Hide() end
-    end
-
-    -- Count how many displays we'll have (Midnight: 5 Dawncrests)
-    local displayCount = 0
-    for _, crestType in ipairs(CREST_ORDER) do
-        local crestData = CURRENCY.CRESTS[crestType]
-        if crestData and crestData.currencyID then
-            displayCount = displayCount + 1
-        end
     end
 
     -- Update each crest display
@@ -260,14 +247,16 @@ local function updateCrestCurrency(parent)
     end
 
     -- Update frame size based on actual content
-    UpdateFrameSize(frame, index - 1)  -- index - 1 gives us the actual count of displayed items
-    
-    -- Update frame visibility
-    if addon.isCharacterTabSelected() then
-        frame:Show()
-    else
-        frame:Hide()
-    end
+    local displayCount = index - 1
+    UpdateFrameSize(frame, displayCount)
+    frame:Show()
+
+    -- Single deferred size update after all displays are rendered
+    C_Timer.After(addon.POSITION_RECALC_TIME, function()
+        if frame:GetParent() and frame:GetParent().updateFrameSize then
+            frame:GetParent():updateFrameSize()
+        end
+    end)
 end
 
 -- Set up event handlers

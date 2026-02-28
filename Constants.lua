@@ -63,23 +63,14 @@ addon.SEASONS = {
     }
 }
 
--- Equipment slots organized by category
-local SLOT_CATEGORIES = {
-    armor = { "Head", "Shoulder", "Chest", "Wrist", "Hands", "Waist", "Legs", "Feet" },
-    accessories = { "Neck", "Back", "Finger0", "Finger1", "Trinket0", "Trinket1" },
-    weapons = { "MainHand", "SecondaryHand" }
+-- Equipment slots
+addon.EQUIPMENT_SLOTS = {
+    "HeadSlot", "ShoulderSlot", "ChestSlot", "WristSlot",
+    "HandsSlot", "WaistSlot", "LegsSlot", "FeetSlot",
+    "NeckSlot", "BackSlot", "Finger0Slot", "Finger1Slot",
+    "Trinket0Slot", "Trinket1Slot",
+    "MainHandSlot", "SecondaryHandSlot"
 }
-
--- Generate equipment slots array
-addon.EQUIPMENT_SLOTS = (function()
-    local slots = {}
-    for _, category in pairs(SLOT_CATEGORIES) do
-        for _, slot in ipairs(category) do
-            table.insert(slots, slot .. "Slot")
-        end
-    end
-    return slots
-end)()
 
 -- Common crest values
 local CREST_COMMON = {
@@ -93,6 +84,7 @@ addon.CREST_BASE = {
         baseName = "Adventurer",
         shortCode = "A",
         color = "ffffff",  -- White
+        colorRGB = { 1, 1, 1 },
         currencyID = 3383,
         ilvlMin = 224,
         ilvlMax = 237,
@@ -109,6 +101,7 @@ addon.CREST_BASE = {
         baseName = "Veteran",
         shortCode = "V",
         color = "1eff00",  -- Green
+        colorRGB = { 0.118, 1, 0 },
         currencyID = 3341,
         ilvlMin = 237,
         ilvlMax = 250,
@@ -125,6 +118,7 @@ addon.CREST_BASE = {
         baseName = "Champion",
         shortCode = "C",
         color = "0070dd",  -- Blue
+        colorRGB = { 0, 0.439, 0.867 },
         currencyID = 3343,
         ilvlMin = 250,
         ilvlMax = 263,
@@ -141,6 +135,7 @@ addon.CREST_BASE = {
         baseName = "Hero",
         shortCode = "H",
         color = "a335ee",  -- Purple
+        colorRGB = { 0.639, 0.208, 0.933 },
         currencyID = 3345,
         ilvlMin = 263,
         ilvlMax = 276,
@@ -156,6 +151,7 @@ addon.CREST_BASE = {
         baseName = "Myth",
         shortCode = "M",
         color = "ff8000",  -- Orange
+        colorRGB = { 1, 0.502, 0 },
         currencyID = 3347,
         ilvlMin = 276,
         ilvlMax = 289,
@@ -239,15 +235,8 @@ addon.CREST_REWARDS = {
 
 -- Text position definitions
 addon.TEXT_POSITIONS = {
-    -- Primary positions with the background band
     TOP = { point = "TOP", x = 0, y = -3 },
     BOTTOM = { point = "BOTTOM", x = 0, y = 3 },
-
-    -- Legacy positions (mapped to new positions for compatibility)
-    TR = { point = "TOP", x = 0, y = -3 },
-    TL = { point = "TOP", x = 0, y = -3 },
-    BR = { point = "BOTTOM", x = 0, y = 3 },
-    BL = { point = "BOTTOM", x = 0, y = 3 },
     C = { point = "CENTER", x = 0, y = 0 },
 }
 

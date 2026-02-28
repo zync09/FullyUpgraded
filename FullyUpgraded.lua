@@ -14,10 +14,7 @@ local CREST_ORDER = addon.CREST_ORDER
 local UPGRADE_TRACKS = addon.UPGRADE_TRACKS
 local GOLD_COSTS = addon.GOLD_COSTS
 
--- Cache frequently used functions
-local pairs = pairs
-local ipairs = ipairs
-local tonumber = tonumber
+-- Cache frequently used math functions
 local format = string.format
 local floor = math.floor
 local ceil = math.ceil
@@ -35,15 +32,8 @@ local upgradeCalculationsCache = {
 }
 local tooltipCache = setmetatable({}, { __mode = "v" })      -- Weak values for tooltip cache
 local itemCache = setmetatable({}, { __mode = "v" })         -- Weak values for item cache
-local tooltipDataCache = setmetatable({}, { __mode = "kv" }) -- Weak references for tooltip data
-
--- Reusable table for temporary calculations
-local tempTable = {}
-
--- Optimization: Create object pools for frames and textures
+-- Optimization: Create object pool for frames
 local framePool = CreateFramePool("Frame")
-local texturePool = CreateTexturePool()
-local fontStringPool = CreateFontStringPool()
 
 -- Object pool for reusable tables
 local tablePool = {
@@ -184,24 +174,6 @@ end
 
 -- Export UpdateTextPositions to addon namespace
 addon.UpdateTextPositions = updateTextPositions
-
--- Function to check if currency has changed
-local function HasCurrencyChanged()
-    local hasChanged = false
-    for crestType, crestData in pairs(CURRENCY.CRESTS) do
-        if crestData.currencyID then
-            local success, info = pcall(C_CurrencyInfo.GetCurrencyInfo, crestData.currencyID)
-            if success and info then
-                local cachedValue = currencyCache[crestType] and currencyCache[crestType].quantity
-                if not cachedValue or cachedValue ~= info.quantity then
-                    hasChanged = true
-                    break
-                end
-            end
-        end
-    end
-    return hasChanged
-end
 
 -- Check currency for all crests with caching
 local function checkCurrencyForAllCrests()
@@ -373,12 +345,7 @@ local function updateDisplay(forceUpdate)
         end
 
         local currencyChanged = checkCurrencyForAllCrests()
-        local calculationsChanged = false
-
-        -- Only recalculate if currency changed
-        if currencyChanged then
-            calculationsChanged = calculateUpgradedCrests()
-        end
+        local calculationsChanged = calculateUpgradedCrests()
 
         -- Update displays if needed
         if forceUpdate or currencyChanged or calculationsChanged then
@@ -564,7 +531,7 @@ local function getCachedTooltipData(slotID, itemLink)
     local currentTime = GetTime()
     local cacheKey = itemLink or slotID
 
-    if tooltipCache[cacheKey] and (currentTime - tooltipCache[cacheKey].time) < 1 then
+    if tooltipCache[cacheKey] and (currentTime - tooltipCache[cacheKey].time) < addon.TOOLTIP_CACHE_TTL then
         return tooltipCache[cacheKey].data
     end
 
@@ -748,16 +715,6 @@ f:SetScript("OnEvent", function(_, event, ...)
     end
 end)
 
--- Optimize event registration based on character frame visibility
-CharacterFrame:HookScript("OnShow", function()
-    f:RegisterEvent("CURRENCY_DISPLAY_UPDATE")
-    f:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
-end)
-
-CharacterFrame:HookScript("OnHide", function()
-    f:UnregisterEvent("CURRENCY_DISPLAY_UPDATE")
-end)
-
 -- Function to force a currency update
 local function forceCurrencyUpdate()
     wipe(currencyCache)
@@ -861,48 +818,13 @@ SlashCmdList["FULLYUPGRADED"] = function(msg)
     end
 end
 
--- Function to check if an addon is loaded
-local function IsAddonLoaded(name)
-    if C_AddOns and C_AddOns.IsAddOnLoaded then
-        return C_AddOns.IsAddOnLoaded(name)
-    elseif _G.IsAddOnLoaded then
-        return _G.IsAddOnLoaded(name)
-    end
-    return false
-end
-
--- Register for ADDON_LOADED
-f:RegisterEvent("ADDON_LOADED")
-local itemUpgradeFrameHooked = false
-
-local originalOnEvent = f:GetScript("OnEvent")
-f:SetScript("OnEvent", function(self, event, ...)
-    if event == "ADDON_LOADED" and not itemUpgradeFrameHooked then
-        local loadedAddon = ...
-        if loadedAddon == "Blizzard_ItemUpgradeUI" then
-            itemUpgradeFrameHooked = true
-        end
-    end
-
-    if originalOnEvent then
-        originalOnEvent(self, event, ...)
-    end
-end)
-
-if not itemUpgradeFrameHooked and IsAddonLoaded("Blizzard_ItemUpgradeUI") then
-    itemUpgradeFrameHooked = true
-end
-
 -- Cleanup function
 local function CleanupAddon()
     wipe(tooltipCache)
     wipe(itemCache)
     wipe(currencyCache)
     wipe(upgradeCalculationsCache.data)
-    wipe(tooltipDataCache)
     framePool:ReleaseAll()
-    texturePool:ReleaseAll()
-    fontStringPool:ReleaseAll()
     collectgarbage("collect")
 end
 

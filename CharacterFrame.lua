@@ -28,6 +28,25 @@ local tooltipData = {}
 local showTooltip = addon.showTooltip
 local hideTooltip = addon.hideTooltip
 
+-- Position a button relative to its slot frame based on current text position
+local function positionButton(button, slotFrame)
+    button:ClearAllPoints()
+    local positionData = TEXT_POSITIONS[currentTextPos]
+    if positionData then
+        if positionData.point == "TOP" then
+            button:SetPoint("TOP", slotFrame, "TOP", 0, -1)
+        elseif positionData.point == "BOTTOM" then
+            button:SetPoint("BOTTOM", slotFrame, "BOTTOM", 0, 1)
+        elseif positionData.point == "CENTER" then
+            button:SetPoint("CENTER", slotFrame, "CENTER", 0, 0)
+        else
+            button:SetPoint("TOP", slotFrame, "TOP", 0, -1)
+        end
+    else
+        button:SetPoint("TOP", slotFrame, "TOP", 0, -1)
+    end
+end
+
 -- Update background strip to match text size and position
 local function updateBackgroundStrip(button)
     if not button or not button.text or not button.background then return end
@@ -44,22 +63,7 @@ local function updateBackgroundStrip(button)
         button.background:SetAllPoints(button)
 
         button:SetSize(gearWidth, stripHeight)
-        button:ClearAllPoints()
-
-        local positionData = TEXT_POSITIONS[currentTextPos]
-        if positionData then
-            if positionData.point == "TOP" then
-                button:SetPoint("TOP", button.slotFrame, "TOP", 0, -1)
-            elseif positionData.point == "BOTTOM" then
-                button:SetPoint("BOTTOM", button.slotFrame, "BOTTOM", 0, 1)
-            elseif positionData.point == "CENTER" then
-                button:SetPoint("CENTER", button.slotFrame, "CENTER", 0, 0)
-            else
-                button:SetPoint("TOP", button.slotFrame, "TOP", 0, -1)
-            end
-        else
-            button:SetPoint("TOP", button.slotFrame, "TOP", 0, -1)
-        end
+        positionButton(button, button.slotFrame)
     end
 end
 
@@ -213,11 +217,6 @@ local function processEquipmentSlot(slot, button)
         button.background:Hide()
     end
 
-    button:SetScript("OnEnter", function(self)
-        showTooltip(self, "ANCHOR_RIGHT", addon.tooltipProviders.upgrade, tooltipData[self.slot])
-    end)
-    button:SetScript("OnLeave", hideTooltip)
-
     local slotID = GetInventorySlotInfo(slot)
     local itemLink = GetInventoryItemLink("player", slotID)
 
@@ -276,17 +275,7 @@ local function updateAllUpgradeTexts()
         initializeUpgradeTexts()
     end
 
-    if not FullyUpgradedDB then
-        FullyUpgradedDB = {
-            textPosition = "TOP",
-            textVisible = true
-        }
-    end
-    if FullyUpgradedDB.textVisible == nil then
-        FullyUpgradedDB.textVisible = true
-    end
-
-    if FullyUpgradedDB.textPosition and TEXT_POSITIONS[FullyUpgradedDB.textPosition] then
+    if FullyUpgradedDB and FullyUpgradedDB.textPosition and TEXT_POSITIONS[FullyUpgradedDB.textPosition] then
         currentTextPos = FullyUpgradedDB.textPosition
     else
         currentTextPos = "TOP"
@@ -339,19 +328,7 @@ local function updateTextPositions(position)
             if button.text:GetText() and button.text:GetText() ~= "" then
                 updateBackgroundStrip(button)
             else
-                button:ClearAllPoints()
-                local positionData = TEXT_POSITIONS[currentTextPos]
-                if positionData then
-                    if positionData.point == "TOP" then
-                        button:SetPoint("TOP", button.slotFrame, "TOP", 0, -1)
-                    elseif positionData.point == "BOTTOM" then
-                        button:SetPoint("BOTTOM", button.slotFrame, "BOTTOM", 0, 1)
-                    elseif positionData.point == "CENTER" then
-                        button:SetPoint("CENTER", button.slotFrame, "CENTER", 0, 0)
-                    else
-                        button:SetPoint("TOP", button.slotFrame, "TOP", 0, -1)
-                    end
-                end
+                positionButton(button, button.slotFrame)
             end
 
             processEquipmentSlot(slot, button)
@@ -394,9 +371,8 @@ local function setupCharacterFrameHooks()
         CharacterFrame:HookScript("OnHide", cleanupUpgradeTexts)
     end
 
-    -- Optimized equipment update hook with proper debouncing
+    -- Debounced equipment update hook
     local updatePending = false
-    local lastUpdateTime = 0
     local UPDATE_DEBOUNCE = 0.3
 
     if PaperDollItemSlotButton_Update then
@@ -404,18 +380,11 @@ local function setupCharacterFrameHooks()
             if not button or not addon.isCharacterTabSelected() then return end
             if not upgradeTextPool[button:GetName():gsub("Character", "")] then return end
 
-            local currentTime = GetTime()
-
-            if currentTime - lastUpdateTime < 0.5 then
-                return
-            end
-
             if not updatePending then
                 updatePending = true
                 C_Timer.After(UPDATE_DEBOUNCE, function()
                     if addon.isCharacterTabSelected() then
                         doUpdate()
-                        lastUpdateTime = GetTime()
                     end
                     updatePending = false
                 end)
