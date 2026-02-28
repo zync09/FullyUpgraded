@@ -8,14 +8,10 @@ addon.CRESTS_CONVERSION_UP = 45  -- 45 lower-tier crests convert to 1 higher-tie
 addon.CACHE_TIMEOUT = 3                -- Cache timeout in seconds
 addon.MAX_CACHE_ENTRIES = 50           -- Maximum number of entries in caches
 addon.TOOLTIP_CACHE_TTL = 5            -- Tooltip cache time-to-live in seconds
-addon.ITEM_INFO_CACHE_TTL = 10         -- Item info cache TTL
-addon.CURRENCY_CACHE_TTL = 2           -- Currency cache TTL
 
 -- UI settings
 addon.FONT_SIZE = 12
 addon.FONT_FLAGS = "OUTLINE, THICKOUTLINE"
-addon.ICON_SIZE = 16
-addon.BUTTON_SIZE = { width = 30, height = 20 }
 addon.FRAME_PADDING = 8
 addon.MASTER_FRAME_MIN_WIDTH = 230
 addon.CURRENCY_FRAME_HEIGHT = 20
@@ -27,31 +23,11 @@ addon.DELAYED_SIZE_UPDATE_TIME = 0.15  -- Delay for size updates
 addon.POSITION_RECALC_TIME = 0.1       -- Position recalculation delay
 addon.CACHE_CLEANUP_INTERVAL = 30      -- Clean caches every 30 seconds
 
--- Display settings
-addon.CURRENCY_SPACING = 6             -- Spacing between currency groups
-addon.ICON_TEXT_SPACING = 2            -- Spacing between icon and text
-addon.SEPARATOR_WIDTH = 2              -- Width of separator between currencies
-
 -- Debug mode (shared across all files)
 addon.debugMode = false
 
--- Color constants for upgrade tracks (Midnight)
-addon.TRACK_COLORS = {
-    -- Midnight upgrade tracks
-    ADVENTURER = "ffffff",    -- White
-    VETERAN = "1eff00",       -- Green
-    CHAMPION = "0070dd",      -- Blue
-    HERO = "a335ee",          -- Purple
-    MYTH = "ff8000",          -- Orange
-
-    -- Special cases
-    FULLY_UPGRADED = "ffd700", -- Gold for completed items
-}
-
 -- Text background settings
 addon.TEXT_BACKGROUND = {
-    enabled = false,          -- Whether to show background by default
-    color = { 0, 0, 0, 0.8 }, -- Black with 80% transparency
     padding = 2,              -- Pixels of padding around text
 }
 
@@ -86,10 +62,7 @@ addon.CREST_BASE = {
         color = "ffffff",  -- White
         colorRGB = { 1, 1, 1 },
         currencyID = 3383,
-        ilvlMin = 224,
-        ilvlMax = 237,
         mythicLevel = 0,  -- No mythic+ requirement
-        usage = "Used to upgrade Adventurer gear in Midnight Season 1",
         sources = {
             "World Quests",
             "Normal Dungeons",
@@ -103,10 +76,7 @@ addon.CREST_BASE = {
         color = "1eff00",  -- Green
         colorRGB = { 0.118, 1, 0 },
         currencyID = 3341,
-        ilvlMin = 237,
-        ilvlMax = 250,
         mythicLevel = 0,  -- No mythic+ requirement
-        usage = "Used to upgrade Veteran gear in Midnight Season 1",
         sources = {
             "Heroic Dungeons",
             "World Events",
@@ -120,10 +90,7 @@ addon.CREST_BASE = {
         color = "0070dd",  -- Blue
         colorRGB = { 0, 0.439, 0.867 },
         currencyID = 3343,
-        ilvlMin = 250,
-        ilvlMax = 263,
         mythicLevel = 2,  -- Mythic+ 2-3
-        usage = "Used to upgrade Champion gear in Midnight Season 1",
         sources = {
             "Normal Raid",
             "Mythic+ 2-3",
@@ -137,10 +104,7 @@ addon.CREST_BASE = {
         color = "a335ee",  -- Purple
         colorRGB = { 0.639, 0.208, 0.933 },
         currencyID = 3345,
-        ilvlMin = 263,
-        ilvlMax = 276,
         mythicLevel = 4,  -- Mythic+ 4-8
-        usage = "Used to upgrade Hero gear in Midnight Season 1",
         sources = {
             "Heroic Raid",
             "Mythic+ 4-8"
@@ -153,10 +117,7 @@ addon.CREST_BASE = {
         color = "ff8000",  -- Orange
         colorRGB = { 1, 0.502, 0 },
         currencyID = 3347,
-        ilvlMin = 276,
-        ilvlMax = 289,
         mythicLevel = 9,  -- Mythic+ 9+
-        usage = "Used to upgrade Myth gear in Midnight Season 1",
         sources = {
             "Mythic Raid",
             "Mythic+ 9+"
@@ -172,6 +133,16 @@ addon.CREST_BY_SHORTCODE = (function()
         lookup[data.shortCode] = crestType
     end
     return lookup
+end)()
+
+-- Generate TRACK_COLORS from CREST_BASE (+ fully upgraded special case)
+addon.TRACK_COLORS = (function()
+    local colors = {}
+    for crestType, data in pairs(addon.CREST_BASE) do
+        colors[crestType] = data.color
+    end
+    colors.FULLY_UPGRADED = "ffd700"  -- Gold for completed items
+    return colors
 end)()
 
 -- Generate CREST_ORDER from CREST_BASE
@@ -250,48 +221,19 @@ addon.TEXT_POSITIONS = {
 }
 
 -- Upgrade track definitions (Midnight - simplified)
--- All tracks now have 6 levels and use a single crest type
+-- All tracks have 6 levels, one crest type each, generated from CREST_BASE
 addon.UPGRADE_TRACKS = (function()
     local tracks = {}
-
-    -- Define track configurations
-    local trackConfigs = {
-        ADVENTURER = {
-            crestType = "ADVENTURER",
-            levels = 6
-        },
-        VETERAN = {
-            crestType = "VETERAN",
-            levels = 6
-        },
-        CHAMPION = {
-            crestType = "CHAMPION",
-            levels = 6
-        },
-        HERO = {
-            crestType = "HERO",
-            levels = 6
-        },
-        MYTH = {
-            crestType = "MYTH",
-            levels = 6
-        }
-    }
-
-    -- Generate tracks from configurations
-    for trackName, config in pairs(trackConfigs) do
-        local crestData = addon.CREST_BASE[config.crestType]
-
-        tracks[trackName] = {
-            color = crestData.color,
-            crest = crestData.baseName,
-            shortname = crestData.baseName,
-            upgradeLevels = config.levels,
-            crestType = config.crestType,
-            goldCost = addon.GOLD_COSTS[config.crestType]
+    for crestType, data in pairs(addon.CREST_BASE) do
+        tracks[crestType] = {
+            color = data.color,
+            crest = data.baseName,
+            shortname = data.baseName,
+            upgradeLevels = 6,
+            crestType = crestType,
+            goldCost = addon.GOLD_COSTS[crestType]
         }
     end
-
     return tracks
 end)()
 

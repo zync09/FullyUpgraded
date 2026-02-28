@@ -46,6 +46,19 @@ local function CreateCrestDisplay(parent)
     display.runsNeeded:SetJustifyH("RIGHT")
     display.runsNeeded:SetTextColor(0.7, 0.7, 0.7)
 
+    -- Store tooltip data reference on the display for OnEnter access
+    display.tooltipInfo = nil
+    display.tooltipCrestData = nil
+
+    -- Set tooltip scripts once (data updated per-refresh via display fields)
+    display.frame:SetScript("OnEnter", function(self)
+        if display.tooltipInfo and display.tooltipCrestData then
+            addon.showTooltip(self, "ANCHOR_TOP", addon.tooltipProviders.crest,
+                {info = display.tooltipInfo, crestData = display.tooltipCrestData})
+        end
+    end)
+    display.frame:SetScript("OnLeave", addon.hideTooltip)
+
     return display
 end
 
@@ -183,12 +196,9 @@ local function UpdateCrestDisplay(display, info, crestData, crestType)
         end
     end
 
-    -- Set up tooltip using unified system
-    display.frame:SetScript("OnEnter", function(self)
-        addon.showTooltip(self, "ANCHOR_TOP", addon.tooltipProviders.crest, {info = info, crestData = crestData})
-    end)
-
-    display.frame:SetScript("OnLeave", addon.hideTooltip)
+    -- Update tooltip data for OnEnter (scripts set once in CreateCrestDisplay)
+    display.tooltipInfo = info
+    display.tooltipCrestData = crestData
 end
 
 -- Main update function for currency display

@@ -1,15 +1,12 @@
 local addonName, addon = ...
-addon.f = CreateFrame("Frame") -- Main frame
-local f = addon.f
+local f = CreateFrame("Frame") -- Main event frame
 
 -- Import constants from addon namespace
 local CRESTS_TO_UPGRADE = addon.CRESTS_TO_UPGRADE
 local CRESTS_CONVERSION_UP = addon.CRESTS_CONVERSION_UP
 local SEASONS = addon.SEASONS
 local CURRENCY = addon.CURRENCY
-local TEXT_POSITIONS = addon.TEXT_POSITIONS
 local CREST_ORDER = addon.CREST_ORDER
-local UPGRADE_TRACKS = addon.UPGRADE_TRACKS
 
 -- Optimization: Create a single tooltip frame and reuse it
 local tooltipFrame = CreateFrame("GameTooltip", "GearUpgradeTooltip", UIParent, "GameTooltipTemplate")
@@ -191,7 +188,7 @@ local function cleanOldCacheEntries()
     local currentTime = GetTime()
 
     -- Only clean caches every 30 seconds
-    if currentTime - lastCleanupTime < (addon.CACHE_CLEANUP_INTERVAL or 30) then
+    if currentTime - lastCleanupTime < addon.CACHE_CLEANUP_INTERVAL then
         return
     end
     lastCleanupTime = currentTime
@@ -513,18 +510,12 @@ local function getCachedItemInfo(itemLink)
     return unpack(itemCache[itemLink] or {})
 end
 
--- Function to show crest currency
-local function showCrestCurrency()
+-- Initial currency display
+C_Timer.After(0.1, function()
     if addon.updateCrestCurrency then
         addon.updateCrestCurrency(currencyFrame)
     end
-end
-
--- Export ShowCrestCurrency function
-addon.showCrestCurrency = showCrestCurrency
-
--- Call it initially
-C_Timer.After(0.1, showCrestCurrency)
+end)
 
 -- Function to share upgrade needs in chat
 local function shareUpgradeNeeds()
@@ -561,9 +552,6 @@ local function shareUpgradeNeeds()
     end
 end
 
--- Export the share function
-addon.shareUpgradeNeeds = shareUpgradeNeeds
-
 -- **Event Handling**
 f:RegisterEvent("PLAYER_LOGIN")
 f:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
@@ -575,7 +563,7 @@ f:RegisterEvent("PLAYER_REGEN_ENABLED")   -- Leaving combat
 -- Enhanced throttling with proper debouncing
 local lastUpdateTime = 0
 local updatePending = false
-local UPDATE_THROTTLE = 0.2
+local UPDATE_THROTTLE = addon.UPDATE_THROTTLE_TIME
 
 local function throttledUpdate(forceUpdate)
     local currentTime = GetTime()
@@ -603,32 +591,26 @@ end
 -- Combat state tracking
 local inCombat = false
 
+-- Shared initialization for login/entering world events
+local function handleInitEvent()
+    InitializeSavedVariables()
+
+    if not addon.initialized then
+        if addon.initializeCharacterFrame then
+            addon.initializeCharacterFrame()
+        else
+            print("[FullyUpgraded] ERROR: initializeCharacterFrame not available")
+        end
+        addon.initialized = true
+        updateDisplay()
+    end
+    updateFrameVisibility()
+end
+
 -- Optimized event handler with combat state management
 f:SetScript("OnEvent", function(_, event, ...)
-    if event == "PLAYER_ENTERING_WORLD" then
-        InitializeSavedVariables()
-
-        if not addon.initialized then
-            if addon.initializeCharacterFrame then
-                addon.initializeCharacterFrame()
-            else
-                print("[FullyUpgraded] ERROR: initializeCharacterFrame not available yet")
-            end
-            addon.initialized = true
-            updateDisplay()
-        end
-        updateFrameVisibility()
-    elseif event == "PLAYER_LOGIN" then
-        if not addon.initialized then
-            if addon.initializeCharacterFrame then
-                addon.initializeCharacterFrame()
-            else
-                print("[FullyUpgraded] ERROR: initializeCharacterFrame not available at login")
-            end
-            addon.initialized = true
-            updateDisplay()
-        end
-        updateFrameVisibility()
+    if event == "PLAYER_ENTERING_WORLD" or event == "PLAYER_LOGIN" then
+        handleInitEvent()
     elseif event == "CURRENCY_DISPLAY_UPDATE" then
         if not inCombat then
             throttledUpdate()
@@ -669,8 +651,8 @@ local function forceCurrencyUpdate()
 
     checkCurrencyForAllCrests()
     calculateUpgradedCrests()
-    if addon.showCrestCurrency then
-        addon.showCrestCurrency()
+    if addon.updateCrestCurrency then
+        addon.updateCrestCurrency(currencyFrame)
     end
 
     if addon.updateAllUpgradeTexts then
@@ -704,7 +686,7 @@ SlashCmdList["FULLYUPGRADED"] = function(msg)
     arg = arg:upper()
 
     if cmd == "textpos" then
-        local position = arg and arg:upper() or ""
+        local position = arg or ""
 
         if position == "TOP" or position == "T" or position == "TR" or position == "TL" then
             addon.UpdateTextPositions("TOP")
@@ -781,15 +763,7 @@ local function getCurrentSeasonItemLevelRange()
     return SEASONS[1].MIN_ILVL, SEASONS[1].MAX_ILVL
 end
 
--- Debug function
-local function Debug(message)
-    if addon.debugMode then
-        print(string.format("[FullyUpgraded] %s", message))
-    end
-end
-
 -- Export functions to addon namespace
-addon.Debug = Debug
 addon.updateDisplay = updateDisplay
 addon.showTooltip = showTooltip
 addon.hideTooltip = hideTooltip
@@ -797,9 +771,6 @@ addon.tooltipProviders = tooltipProviders
 addon.processUpgradeTrack = processUpgradeTrack
 addon.getCachedTooltipData = getCachedTooltipData
 addon.getCachedItemInfo = getCachedItemInfo
-addon.calculateUpgradedCrests = calculateUpgradedCrests
-addon.checkCurrencyForAllCrests = checkCurrencyForAllCrests
 addon.getCurrentSeasonItemLevelRange = getCurrentSeasonItemLevelRange
-addon.forceCurrencyUpdate = forceCurrencyUpdate
 
 print("[FullyUpgraded] FullyUpgraded.lua loaded (Midnight Edition)")

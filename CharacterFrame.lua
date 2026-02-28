@@ -226,15 +226,15 @@ local function processEquipmentSlot(slot, button)
     end
 
     local _, _, _, effectiveILvl = addon.getCachedItemInfo(itemLink)
-    local tooltipData = addon.getCachedTooltipData(slotID, itemLink)
+    local itemTooltip = addon.getCachedTooltipData(slotID, itemLink)
     local shouldShow = false
 
-    if effectiveILvl and tooltipData then
+    if effectiveILvl and itemTooltip then
         local minIlvl, maxIlvl = addon.getCurrentSeasonItemLevelRange()
 
         if effectiveILvl >= minIlvl and effectiveILvl <= maxIlvl then
             -- Process upgrade levels (Midnight uses X/6 format)
-            for _, line in ipairs(tooltipData.lines) do
+            for _, line in ipairs(itemTooltip.lines) do
                 if line and line.leftText then
                     local trackName, current, max = line.leftText:match("Upgrade Level: (%w+) (%d+)/(%d+)")
                     if trackName then

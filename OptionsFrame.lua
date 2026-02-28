@@ -1,7 +1,5 @@
 local addonName, addon = ...
 
-local TEXT_POSITIONS = addon.TEXT_POSITIONS
-
 local function CreateOptionsFrame(parent)
     local frame = CreateFrame("Frame", "FullyUpgradedOptions", parent, "BackdropTemplate")
     frame:SetSize(280, 35)
@@ -41,9 +39,14 @@ local function CreateOptionsFrame(parent)
     checkbox.fill:SetPoint("TOPLEFT", 2, -2)
     checkbox.fill:SetPoint("BOTTOMRIGHT", -2, 2)
 
-    -- Set initial state
-    checkbox.checked = true
-    checkbox.fill:Show()
+    -- Set initial state from saved variables
+    local isVisible = not FullyUpgradedDB or FullyUpgradedDB.textVisible ~= false
+    checkbox.checked = isVisible
+    if isVisible then
+        checkbox.fill:Show()
+    else
+        checkbox.fill:Hide()
+    end
 
     local checkboxLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     checkboxLabel:SetPoint("LEFT", checkbox, "RIGHT", 4, 0)
@@ -96,11 +99,14 @@ local function CreateOptionsFrame(parent)
         end
     end
 
-    -- Initialize the dropdown
+    -- Initialize the dropdown with saved position
     UIDropDownMenu_Initialize(dropdown, Initialize)
     UIDropDownMenu_SetWidth(dropdown, 65)
-    UIDropDownMenu_SetSelectedValue(dropdown, "TOP")
-    UIDropDownMenu_SetText(dropdown, "Top")
+
+    local savedPos = FullyUpgradedDB and FullyUpgradedDB.textPosition or "TOP"
+    local posLabels = { TOP = "Top", BOTTOM = "Bottom", C = "Center" }
+    UIDropDownMenu_SetSelectedValue(dropdown, savedPos)
+    UIDropDownMenu_SetText(dropdown, posLabels[savedPos] or "Top")
 
     -- Style the dropdown
     local dropdownButton = _G[dropdown:GetName() .. "Button"]
