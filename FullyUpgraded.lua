@@ -22,6 +22,10 @@ local upgradeCalculationsCache = {
 local tooltipCache = setmetatable({}, { __mode = "v" })      -- Weak values for tooltip cache
 local itemCache = setmetatable({}, { __mode = "v" })         -- Weak values for item cache
 
+-- Forward declarations (needed so updateMasterFrameSize can reference these)
+local currencyFrame
+local titleText
+
 -- Create master frame that will contain the display
 local masterFrame = CreateFrame("Frame", "GearUpgradeMasterFrame", CharacterFrame, "BackdropTemplate")
 masterFrame:SetPoint("TOPRIGHT", CharacterFrame, "BOTTOMRIGHT", 0, 0)
@@ -40,7 +44,7 @@ local function updateMasterFrameSize()
     -- Set master frame size based on content plus padding
     masterFrame:SetSize(
         math.max(addon.MASTER_FRAME_MIN_WIDTH, currencyWidth + padding * 2),
-        titleHeight + currencyHeight + padding * 2 + 18
+        titleHeight + currencyHeight + padding
     )
 end
 
@@ -89,7 +93,7 @@ masterFrame:SetScript("OnLeave", function()
 end)
 
 -- Create title text
-local titleText = masterFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+titleText = masterFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 titleText:SetPoint("TOPLEFT", masterFrame, "TOPLEFT", 8, -5)
 titleText:SetText("Fully Upgraded:")
 titleText:SetTextColor(1, 1, 0) -- Gold color
@@ -104,7 +108,7 @@ end
 addon.isCharacterTabSelected = isCharacterTabSelected
 
 -- Create currency frame for crests (positioned below the title bar)
-local currencyFrame = CreateFrame("Frame", "GearUpgradeCurrencyFrame", masterFrame)
+currencyFrame = CreateFrame("Frame", "GearUpgradeCurrencyFrame", masterFrame)
 currencyFrame:SetPoint("TOP", masterFrame, "TOP", 0, -25)
 currencyFrame:SetSize(addon.CURRENCY_FRAME_WIDTH, addon.CURRENCY_FRAME_HEIGHT)
 
