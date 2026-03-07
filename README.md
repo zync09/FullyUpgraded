@@ -7,7 +7,7 @@
 
 ## Features (Midnight Edition)
 - **Shows upgrade potential** for all equipped items (X/6 format)
-- **Tracks Dawncrest requirements** across 4 tracked tiers (Veteran → Champion → Hero → Myth)
+- **Tracks Dawncrest requirements** across all 5 tiers (Adventurer → Veteran → Champion → Hero → Myth)
 - **Calculates gold costs** per item and total across all gear
 - **Mythic+ run calculations** based on Dawncrest needs (flat 20 crests per upgrade)
 - **Raid rewards breakdown** for all 3 Midnight raids (The Voidspire, The Dreamrift, March on Quel'Danas)
@@ -16,6 +16,10 @@
 - **Simplified upgrade system** - one crest type per track, no split upgrades
 - **Customizable text position** via `/fu textpos` command
 
+## What's New in 2.2
+- Added Adventurer Dawncrest tracking in currency panel (now shows all 5 tiers: A/V/C/H/M)
+- Fixed currency panel dynamic sizing (panel now properly resizes for all crest rows)
+
 ## What's New in 2.1
 - Added "Waiting for gear" state for pre-season characters (no misleading 0/0 display)
 - Updated M+ crest rewards from Wowhead: Hero Dawncrests from M+ 2-6, Myth Dawncrests from M+ 7+
@@ -23,7 +27,6 @@
 - Color-coded raid titles in tooltips matching crest tier
 - Weekly cap now reads from WoW API when available
 - Dark tooltip backdrop for better readability
-- Removed Adventurer tier from currency panel (not needed for upgrades)
 
 ## What's New in 2.0 (Midnight)
 - Removed Valorstones (replaced with flat gold costs)
