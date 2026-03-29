@@ -139,7 +139,41 @@ local function cleanupUpgradeTexts()
     end
 end
 
--- Process an upgradeable item (SIMPLIFIED for Midnight - single crest type)
+-- Calculate dual-crest alternatives for an upgrade track
+-- Level 1→2 can use lower-tier crest, level 5→6 can use higher-tier crest
+local function getDualCrestAlternatives(crestType, currentNum, maxNum)
+    local alternatives = {}
+    local orderIndex = addon.CREST_ORDER_INDEX[crestType]
+    if not orderIndex then return alternatives end
+
+    -- Level 1→2: can also use previous (lower) tier crest
+    if currentNum < 2 then
+        local prevType = addon.CREST_ORDER[orderIndex - 1]
+        if prevType then
+            alternatives.lowLevel = {
+                targetLevel = 2,
+                altCrestType = prevType,
+                count = addon.CRESTS_TO_UPGRADE
+            }
+        end
+    end
+
+    -- Level 5→6: can also use next (higher) tier crest
+    if currentNum < maxNum then
+        local nextType = addon.CREST_ORDER[orderIndex + 1]
+        if nextType then
+            alternatives.highLevel = {
+                targetLevel = maxNum,
+                altCrestType = nextType,
+                count = addon.CRESTS_TO_UPGRADE
+            }
+        end
+    end
+
+    return alternatives
+end
+
+-- Process an upgradeable item (Midnight - with dual-crest support)
 local function processUpgradeableItem(button, track, trackName, currentNum, maxNum, levelsToUpgrade)
     if not button or not track or not trackName then
         return
@@ -157,7 +191,7 @@ local function processUpgradeableItem(button, track, trackName, currentNum, maxN
     button.background:Show()
     button:Show()
 
-    -- Simplified tooltip data - single crest type per track in Midnight
+    -- Tooltip data with dual-crest alternatives
     tooltipData[button.slot] = {
         type = "upgradeable",
         track = track,
@@ -168,21 +202,61 @@ local function processUpgradeableItem(button, track, trackName, currentNum, maxN
         requirements = {}
     }
 
-    -- Midnight system: single crest type, flat cost
+    -- Midnight system: split crest costs at dual-crest transition levels
     if track.crestType then
         local crestType = track.crestType
         local crestCurrency = addon.CURRENCY.CRESTS[crestType]
         local goldCost = track.goldCost or 0
+        local orderIndex = addon.CREST_ORDER_INDEX[crestType]
+        local lowerTierType = orderIndex and addon.CREST_ORDER[orderIndex - 1]
+
+        -- Calculate split: level 1→2 goes to lower tier if available
+        local standardCount = levelsToUpgrade * addon.CRESTS_TO_UPGRADE
+        local lowerTierCount = 0
+        if currentNum < 2 and lowerTierType then
+            lowerTierCount = addon.CRESTS_TO_UPGRADE
+            standardCount = standardCount - addon.CRESTS_TO_UPGRADE
+        end
 
         tooltipData[button.slot].requirements.standard = {
             crestType = crestType,
-            count = levelsToUpgrade * addon.CRESTS_TO_UPGRADE,
+            count = standardCount,
             mythicLevel = crestCurrency and crestCurrency.mythicLevel or 0,
             goldCost = levelsToUpgrade * goldCost
         }
+
+        -- Lower-tier crest line for level 2
+        if lowerTierCount > 0 then
+            tooltipData[button.slot].requirements.lowerTier = {
+                crestType = lowerTierType,
+                count = lowerTierCount
+            }
+        end
+
+        -- Calculate dual-crest alternatives (level 6 → higher tier option)
+        local alternatives = getDualCrestAlternatives(crestType, currentNum, maxNum)
+        if next(alternatives) then
+            tooltipData[button.slot].requirements.alternatives = alternatives
+        end
     end
 
-    addon.processUpgradeTrack(track, levelsToUpgrade, trackName)
+    -- Accumulate total gold cost
+    local itemGoldCost = levelsToUpgrade * (track.goldCost or 0)
+    addon.totalGoldCost = (addon.totalGoldCost or 0) + itemGoldCost
+
+    -- Store per-slot data for master frame tooltip
+    addon.slotUpgradeData[button.slot] = {
+        trackName = trackName,
+        currentNum = currentNum,
+        maxNum = maxNum,
+        levelsToUpgrade = levelsToUpgrade,
+        goldCost = itemGoldCost,
+        crestType = track.crestType,
+        crestCount = levelsToUpgrade * addon.CRESTS_TO_UPGRADE,
+        fullyUpgraded = false
+    }
+
+    addon.processUpgradeTrack(track, levelsToUpgrade, trackName, currentNum)
 end
 
 -- Process a fully upgraded item
@@ -202,6 +276,17 @@ local function processFullyUpgradedItem(button, trackName, currentNum, maxNum)
         trackName = trackName,
         currentNum = currentNum,
         maxNum = maxNum
+    }
+
+    -- Store per-slot data for master frame tooltip
+    addon.slotUpgradeData[button.slot] = {
+        trackName = trackName,
+        currentNum = currentNum,
+        maxNum = maxNum,
+        levelsToUpgrade = 0,
+        goldCost = 0,
+        crestCount = 0,
+        fullyUpgraded = true
     }
 end
 
@@ -247,6 +332,7 @@ local function processEquipmentSlot(slot, button)
                             local track = UPGRADE_TRACKS[trackUpper]
                             if track then
                                 shouldShow = true
+                                addon.totalMaxUpgrades = (addon.totalMaxUpgrades or 0) + maxNum
                                 if currentNum < maxNum then
                                     processUpgradeableItem(button, track, trackName, currentNum, maxNum,
                                         maxNum - currentNum)
@@ -288,9 +374,12 @@ local function updateAllUpgradeTexts()
         addon.CURRENCY.CRESTS[crestType].needed = 0
     end
 
-    -- Reset total upgrades counter
+    -- Reset counters
     addon.totalUpgrades = 0
+    addon.totalGoldCost = 0
+    addon.totalMaxUpgrades = 0
     addon.seasonGearCount = 0
+    addon.slotUpgradeData = {}
 
     -- Process each equipment slot
     for _, slot in ipairs(EQUIPMENT_SLOTS) do
@@ -300,7 +389,7 @@ local function updateAllUpgradeTexts()
         end
     end
 
-    -- Update title with total upgrades (three-state)
+    -- Update title with total upgrades and gold cost (three-state)
     if addon.titleText then
         if addon.seasonGearCount == 0 then
             addon.titleText:SetText(string.format("Waiting for gear (%d+)", addon.SEASONS[1].MIN_ILVL))
@@ -308,6 +397,19 @@ local function updateAllUpgradeTexts()
             addon.titleText:SetText(string.format("Fully Upgraded in %d", addon.totalUpgrades))
         else
             addon.titleText:SetText("Fully Upgraded")
+        end
+    end
+
+    -- Update progress bar
+    if addon.progressBar and addon.progressFill then
+        if addon.totalMaxUpgrades and addon.totalMaxUpgrades > 0 then
+            local completed = addon.totalMaxUpgrades - addon.totalUpgrades
+            local pct = completed / addon.totalMaxUpgrades
+            local barWidth = addon.progressBar:GetWidth() * pct
+            addon.progressFill:SetWidth(math.max(1, barWidth))
+            addon.progressBar:Show()
+        else
+            addon.progressBar:Hide()
         end
     end
 end

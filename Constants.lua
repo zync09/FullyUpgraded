@@ -34,7 +34,7 @@ addon.TEXT_BACKGROUND = {
 -- Midnight expansion item level range
 addon.SEASONS = {
     [1] = {  -- Midnight Season 1
-        MIN_ILVL = 224,
+        MIN_ILVL = 220,
         MAX_ILVL = 289
     }
 }
@@ -64,9 +64,9 @@ addon.CREST_BASE = {
         currencyID = 3383,
         mythicLevel = 0,  -- No mythic+ requirement
         sources = {
-            "World Quests",
-            "Normal Dungeons",
-            "Delves (Lower Tiers)"
+            "Repeatable Outdoor Events",
+            "Delves (Tier 4)",
+            "Prey Hunts (Normal)"
         },
         upgradesTo = "VETERAN"
     },
@@ -78,9 +78,11 @@ addon.CREST_BASE = {
         currencyID = 3341,
         mythicLevel = 0,  -- No mythic+ requirement
         sources = {
-            "Heroic Dungeons",
-            "World Events",
-            "Delves (Mid Tiers)"
+            "Repeatable Outdoor Events",
+            "Raid Finder",
+            "Heroic Season Dungeons",
+            "Delves (Tiers 5-6)",
+            "Prey Hunts (Hard)"
         },
         upgradesTo = "CHAMPION"
     },
@@ -90,11 +92,12 @@ addon.CREST_BASE = {
         color = "0070dd",  -- Blue
         colorRGB = { 0, 0.439, 0.867 },
         currencyID = 3343,
-        mythicLevel = 0,  -- Not from Mythic+
+        mythicLevel = 2,  -- Mythic+ 2-3
         sources = {
-            "Normal Raid",
             "Mythic 0 Dungeons",
-            "Delves (High Tiers)"
+            "Mythic+ 2-3",
+            "Normal Raid",
+            "Delves (Tiers 7-10)"
         },
         upgradesTo = "HERO"
     },
@@ -104,10 +107,11 @@ addon.CREST_BASE = {
         color = "a335ee",  -- Purple
         colorRGB = { 0.639, 0.208, 0.933 },
         currencyID = 3345,
-        mythicLevel = 2,  -- Mythic+ 2-6
+        mythicLevel = 4,  -- Mythic+ 4-8
         sources = {
             "Heroic Raid",
-            "Mythic+ 2-6"
+            "Mythic+ 4-8",
+            "Delves (Tier 11)"
         },
         upgradesTo = "MYTH"
     },
@@ -117,10 +121,10 @@ addon.CREST_BASE = {
         color = "ff8000",  -- Orange
         colorRGB = { 1, 0.502, 0 },
         currencyID = 3347,
-        mythicLevel = 7,  -- Mythic+ 7+
+        mythicLevel = 9,  -- Mythic+ 9+
         sources = {
             "Mythic Raid",
-            "Mythic+ 7+"
+            "Mythic+ 9+"
         },
         upgradesTo = nil
     }
@@ -156,6 +160,15 @@ addon.CREST_ORDER = (function()
     return order
 end)()
 
+-- Index lookup for CREST_ORDER (e.g. "VETERAN" → 2)
+addon.CREST_ORDER_INDEX = (function()
+    local lookup = {}
+    for i, crestType in ipairs(addon.CREST_ORDER) do
+        lookup[crestType] = i
+    end
+    return lookup
+end)()
+
 -- Generate CURRENCY.CRESTS from CREST_BASE
 addon.CURRENCY = {
     CRESTS = (function()
@@ -188,23 +201,56 @@ addon.GOLD_COSTS = {
     MYTH = 50
 }
 
--- Crest rewards from Mythic+ (Midnight Season 1 - from Wowhead)
--- Hero Dawncrests from M+ 2-6, Myth Dawncrests from M+ 7-10+
+-- Crest rewards from Mythic+ (Midnight Season 1)
+-- Champion from M+2-3, Hero from M+4-8, Myth from M+9-12
+-- Reward amounts are estimates - update when confirmed
 addon.CREST_REWARDS = {
-    HERO = {
+    CHAMPION = {
         [2] = { timed = 10 },
-        [3] = { timed = 12 },
-        [4] = { timed = 14 },
-        [5] = { timed = 16 },
-        [6] = { timed = 18 }
+        [3] = { timed = 12 }
+    },
+    HERO = {
+        [4] = { timed = 10 },
+        [5] = { timed = 12 },
+        [6] = { timed = 14 },
+        [7] = { timed = 16 },
+        [8] = { timed = 18 }
     },
     MYTH = {
-        [7] = { timed = 10 },
-        [8] = { timed = 12 },
-        [9] = { timed = 14 },
-        [10] = { timed = 16 }
+        [9] = { timed = 10 },
+        [10] = { timed = 12 },
+        [11] = { timed = 14 },
+        [12] = { timed = 16 }
     }
 }
+
+-- Slot display names for tooltips
+addon.SLOT_DISPLAY_NAMES = {
+    HeadSlot = "Head",
+    ShoulderSlot = "Shoulder",
+    ChestSlot = "Chest",
+    WristSlot = "Wrist",
+    HandsSlot = "Hands",
+    WaistSlot = "Waist",
+    LegsSlot = "Legs",
+    FeetSlot = "Feet",
+    NeckSlot = "Neck",
+    BackSlot = "Back",
+    Finger0Slot = "Ring 1",
+    Finger1Slot = "Ring 2",
+    Trinket0Slot = "Trinket 1",
+    Trinket1Slot = "Trinket 2",
+    MainHandSlot = "Main Hand",
+    SecondaryHandSlot = "Off Hand"
+}
+
+-- Format gold amount with comma separators
+function addon.formatGold(amount)
+    if amount >= 1000 then
+        return string.format("%d,%03dg", math.floor(amount / 1000), amount % 1000)
+    end
+    return amount .. "g"
+end
 
 -- Text position definitions
 addon.TEXT_POSITIONS = {

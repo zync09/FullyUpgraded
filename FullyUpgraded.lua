@@ -22,9 +22,10 @@ local upgradeCalculationsCache = {
 local tooltipCache = setmetatable({}, { __mode = "v" })      -- Weak values for tooltip cache
 local itemCache = setmetatable({}, { __mode = "v" })         -- Weak values for item cache
 
--- Forward declarations (needed so updateMasterFrameSize can reference these)
+-- Forward declarations (needed so handlers can reference functions defined later)
 local currencyFrame
 local titleText
+local shareUpgradeNeeds
 
 -- Create master frame that will contain the display
 local masterFrame = CreateFrame("Frame", "GearUpgradeMasterFrame", CharacterFrame, "BackdropTemplate")
@@ -38,13 +39,14 @@ local function updateMasterFrameSize()
 
     local padding = addon.FRAME_PADDING
     local titleHeight = titleText and titleText:GetHeight() or 0
+    local progressBarHeight = 5 -- 3px bar + 2px gap
     local currencyHeight = currencyFrame:GetHeight()
     local currencyWidth = currencyFrame:GetWidth()
 
     -- Set master frame size based on content plus padding
     masterFrame:SetSize(
         math.max(addon.MASTER_FRAME_MIN_WIDTH, currencyWidth + padding * 2),
-        titleHeight + currencyHeight + padding
+        titleHeight + progressBarHeight + currencyHeight + padding
     )
 end
 
@@ -79,18 +81,7 @@ masterFrame:SetScript("OnMouseUp", function(self, button)
     end
 end)
 
--- Add tooltip for master frame
-masterFrame:SetScript("OnEnter", function(self)
-    GameTooltip:SetOwner(self, "ANCHOR_TOP")
-    GameTooltip:AddLine("Fully Upgraded")
-    GameTooltip:AddLine("Left-click to share upgrade needs in chat", 0.8, 0.8, 0.8)
-    GameTooltip:AddLine("Right-click for options", 0.8, 0.8, 0.8)
-    GameTooltip:Show()
-end)
-
-masterFrame:SetScript("OnLeave", function()
-    GameTooltip:Hide()
-end)
+-- Master frame tooltip set up after tooltipProviders is defined (see below)
 
 -- Create title text
 titleText = masterFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -101,6 +92,26 @@ titleText:SetTextColor(1, 1, 0) -- Gold color
 -- Export titleText to addon namespace for updates
 addon.titleText = titleText
 
+-- Create progress bar under title
+local progressBar = CreateFrame("Frame", nil, masterFrame)
+progressBar:SetPoint("TOPLEFT", titleText, "BOTTOMLEFT", 0, -2)
+progressBar:SetPoint("RIGHT", masterFrame, "RIGHT", -8, 0)
+progressBar:SetHeight(3)
+
+local progressBg = progressBar:CreateTexture(nil, "BACKGROUND")
+progressBg:SetAllPoints()
+progressBg:SetColorTexture(0.2, 0.2, 0.2, 0.8)
+
+local progressFill = progressBar:CreateTexture(nil, "ARTWORK")
+progressFill:SetPoint("TOPLEFT")
+progressFill:SetPoint("BOTTOMLEFT")
+progressFill:SetHeight(3)
+progressFill:SetColorTexture(1, 0.82, 0, 1) -- Gold
+
+addon.progressBar = progressBar
+addon.progressFill = progressFill
+progressBar:Hide()
+
 -- Export shared function to check if character tab is selected
 local function isCharacterTabSelected()
     return PaperDollFrame and PaperDollFrame:IsVisible()
@@ -109,7 +120,7 @@ addon.isCharacterTabSelected = isCharacterTabSelected
 
 -- Create currency frame for crests (positioned below the title bar)
 currencyFrame = CreateFrame("Frame", "GearUpgradeCurrencyFrame", masterFrame)
-currencyFrame:SetPoint("TOP", masterFrame, "TOP", 0, -25)
+currencyFrame:SetPoint("TOP", masterFrame, "TOP", 0, -30)
 currencyFrame:SetSize(addon.CURRENCY_FRAME_WIDTH, addon.CURRENCY_FRAME_HEIGHT)
 
 -- Set up frame update events
@@ -378,7 +389,23 @@ local tooltipProviders = {
         if tooltipInfo.type == "upgradeable" then
             GameTooltip:AddLine("Upgrade Requirements:")
 
-            -- Simplified for Midnight - single crest type per track
+            -- Show lower-tier crest line first (level 2 dual-crest)
+            if tooltipInfo.requirements.lowerTier then
+                local lt = tooltipInfo.requirements.lowerTier
+                local ltBase = addon.CREST_BASE[lt.crestType]
+                if ltBase and CURRENCY.CRESTS[lt.crestType] then
+                    local currencyID = CURRENCY.CRESTS[lt.crestType].currencyID
+                    local success, currencyInfo = pcall(C_CurrencyInfo.GetCurrencyInfo, currencyID)
+                    if success and currencyInfo then
+                        local iconText = CreateTextureMarkup(currencyInfo.iconFileID, 64, 64, 16, 16, 0, 1, 0, 1)
+                        local currencyName = currencyInfo.name or (ltBase.baseName .. " Dawncrest")
+                        GameTooltip:AddLine(string.format("%s %d x |cFF%s%s|r",
+                            iconText, lt.count, ltBase.color, currencyName))
+                    end
+                end
+            end
+
+            -- Show primary crest line
             if tooltipInfo.requirements.standard then
                 local req = tooltipInfo.requirements.standard
                 local baseData = addon.CREST_BASE[req.crestType]
@@ -395,10 +422,18 @@ local tooltipProviders = {
                     end
                 end
 
-                -- Add gold cost
-                if req.goldCost and req.goldCost > 0 then
-                    GameTooltip:AddLine(string.format("|cFFFFD700%dg|r", req.goldCost), 1, 1, 1)
+                -- Show level 6 dual-crest alternative (level 2 is already split above)
+                local alts = tooltipInfo.requirements.alternatives
+                if alts and alts.highLevel then
+                    local altBase = addon.CREST_BASE[alts.highLevel.altCrestType]
+                    if altBase then
+                        GameTooltip:AddLine(
+                            string.format("  Level %d also accepts |cFF%s%s|r Dawncrest",
+                                alts.highLevel.targetLevel, altBase.color, altBase.baseName),
+                            0.7, 0.7, 0.7)
+                    end
                 end
+
             end
         end
     end,
@@ -414,6 +449,34 @@ local tooltipProviders = {
 
         if crestData.needed and crestData.needed > 0 then
             GameTooltip:AddLine("Needed: " .. crestData.needed, 1, 0.82, 0)
+        end
+
+        -- Season maximum
+        local totalEarned = info.totalEarned or info.quantity or 0
+        local seasonMax = info.maxQuantity or 0
+        if seasonMax > 0 then
+            GameTooltip:AddLine(string.format("Season: %d / %d", totalEarned, seasonMax), 0.6, 0.8, 1)
+        end
+
+        -- Excess crest indicator with conversion potential
+        local excess = math.max(0, (info.quantity or 0) - (crestData.needed or 0))
+        if excess > 0 then
+            local crestType = addon.CREST_BY_SHORTCODE[crestData.reallyshortname]
+            local baseData = crestType and addon.CREST_BASE[crestType]
+            if baseData and baseData.upgradesTo then
+                local nextTier = addon.CREST_BASE[baseData.upgradesTo]
+                local convertible = math.floor(excess / addon.CRESTS_CONVERSION_UP)
+                if nextTier and convertible > 0 then
+                    GameTooltip:AddLine(string.format("Excess: %d (converts to %d |cFF%s%s|r)",
+                        excess, convertible, nextTier.color, nextTier.baseName), 0.5, 1, 0.5)
+                elseif nextTier then
+                    local remaining = addon.CRESTS_CONVERSION_UP - (excess % addon.CRESTS_CONVERSION_UP)
+                    GameTooltip:AddLine(string.format("Excess: %d (%d more to convert to |cFF%s%s|r)",
+                        excess, remaining, nextTier.color, nextTier.baseName), 0.7, 0.7, 0.7)
+                end
+            elseif excess > 0 then
+                GameTooltip:AddLine(string.format("Excess: %d", excess), 0.5, 1, 0.5)
+            end
         end
 
         -- Add crest information via direct lookup
@@ -458,7 +521,7 @@ local tooltipProviders = {
                 if rewards then
                     local remaining = crestData.needed and math.max(0, crestData.needed - crestData.current - (crestData.upgraded or 0)) or 0
 
-                    for level = baseData.mythicLevel, 15 do
+                    for level = baseData.mythicLevel, 12 do
                         if rewards[level] then
                             local rewardAmount = rewards[level].timed
                             local runsNeeded = remaining > 0 and math.ceil(remaining / rewardAmount) or 0
@@ -476,23 +539,128 @@ local tooltipProviders = {
     end
 }
 
--- Process a single upgrade track (SIMPLIFIED for Midnight - no split upgrades, no valorstones)
-local function processUpgradeTrack(track, levelsToUpgrade, trackName)
+-- Cache crest icons for tooltip use (populated on first tooltip show)
+local crestIconCache = {}
+local function getCrestIcon(crestType)
+    if crestIconCache[crestType] then return crestIconCache[crestType] end
+    local crestData = CURRENCY.CRESTS[crestType]
+    if crestData and crestData.currencyID then
+        local success, info = pcall(C_CurrencyInfo.GetCurrencyInfo, crestData.currencyID)
+        if success and info and info.iconFileID then
+            crestIconCache[crestType] = CreateTextureMarkup(info.iconFileID, 64, 64, 14, 14, 0, 1, 0, 1)
+            return crestIconCache[crestType]
+        end
+    end
+    return ""
+end
+
+-- Master frame tooltip: per-slot breakdown with totals
+tooltipProviders.masterFrame = function()
+    GameTooltip:AddLine("Fully Upgraded", 1, 0.82, 0)
+
+    -- Per-slot breakdown
+    local hasSlots = false
+    if addon.slotUpgradeData then
+        for _, slot in ipairs(addon.EQUIPMENT_SLOTS) do
+            local data = addon.slotUpgradeData[slot]
+            if data then
+                if not hasSlots then
+                    GameTooltip:AddLine(" ")
+                    hasSlots = true
+                end
+                local slotLabel = addon.SLOT_DISPLAY_NAMES[slot] or slot:gsub("Slot$", "")
+                if data.fullyUpgraded then
+                    local color = addon.TRACK_COLORS.FULLY_UPGRADED
+                    local icon = getCrestIcon(data.trackName:upper())
+                    GameTooltip:AddDoubleLine(
+                        slotLabel,
+                        string.format("%s |cFF%s%s %d/%d|r", icon, color, data.trackName, data.currentNum, data.maxNum),
+                        0.7, 0.7, 0.7, 1, 1, 1)
+                else
+                    local trackUpper = data.trackName:upper()
+                    local color = addon.TRACK_COLORS[trackUpper] or "ffffff"
+                    local icon = getCrestIcon(data.crestType or trackUpper)
+                    GameTooltip:AddDoubleLine(
+                        slotLabel,
+                        string.format("|cFF%s+%d|r %s %d",
+                            color, data.levelsToUpgrade,
+                            icon, data.crestCount),
+                        0.7, 0.7, 0.7, 1, 1, 1)
+                end
+            end
+        end
+    end
+
+    -- Season progress summary
+    GameTooltip:AddLine(" ")
+    GameTooltip:AddLine("Season Progress:", 0.9, 0.7, 0)
+    for _, crestType in ipairs(CREST_ORDER) do
+        local crestData = CURRENCY.CRESTS[crestType]
+        if crestData and crestData.currencyID then
+            local success, info = pcall(C_CurrencyInfo.GetCurrencyInfo, crestData.currencyID)
+            if success and info then
+                local totalEarned = info.totalEarned or info.quantity or 0
+                local seasonMax = info.maxQuantity or 0
+                if seasonMax > 0 then
+                    local baseData = addon.CREST_BASE[crestType]
+                    local color = baseData and baseData.color or "ffffff"
+                    local icon = getCrestIcon(crestType)
+                    GameTooltip:AddDoubleLine(
+                        string.format("%s |cFF%s%s|r", icon, color, baseData.baseName),
+                        string.format("%d / %d", totalEarned, seasonMax),
+                        1, 1, 1, 0.8, 0.8, 0.8)
+                end
+            end
+        end
+    end
+
+    GameTooltip:AddLine(" ")
+    GameTooltip:AddLine("Left-click to share | Right-click for options", 0.5, 0.5, 0.5)
+end
+
+-- Set up master frame tooltip scripts
+masterFrame:SetScript("OnEnter", function(self)
+    showTooltip(self, "ANCHOR_TOP", tooltipProviders.masterFrame)
+end)
+masterFrame:SetScript("OnLeave", hideTooltip)
+
+-- Process a single upgrade track (Midnight - flat 20 crests per upgrade)
+-- Dual-crest transitions: level 1→2 assigned to lower tier (cheaper),
+-- level 5→6 kept as same tier (wouldn't waste higher-tier crests).
+local function processUpgradeTrack(track, levelsToUpgrade, trackName, currentNum)
     -- Add to total upgrades counter
     if levelsToUpgrade > 0 then
         addon.totalUpgrades = (addon.totalUpgrades or 0) + levelsToUpgrade
     end
 
-    -- Midnight uses flat 20 crests per upgrade, single crest type per track
     if track.crestType then
         local crestType = track.crestType
-        local crestsNeeded = levelsToUpgrade * CRESTS_TO_UPGRADE
+        local maxNum = track.upgradeLevels or 6
+        local orderIndex = addon.CREST_ORDER_INDEX[crestType]
+        local lowerTierType = orderIndex and addon.CREST_ORDER[orderIndex - 1]
 
-        CURRENCY.CRESTS[crestType].needed = (CURRENCY.CRESTS[crestType].needed or 0) + crestsNeeded
+        local standardCrests = 0
+        local lowerTierCrests = 0
+
+        for targetLevel = currentNum + 1, maxNum do
+            if targetLevel == 2 and lowerTierType then
+                -- Level 1→2: assign to lower tier (cheaper to farm)
+                lowerTierCrests = lowerTierCrests + CRESTS_TO_UPGRADE
+            else
+                standardCrests = standardCrests + CRESTS_TO_UPGRADE
+            end
+        end
+
+        CURRENCY.CRESTS[crestType].needed = (CURRENCY.CRESTS[crestType].needed or 0) + standardCrests
+
+        if lowerTierCrests > 0 and CURRENCY.CRESTS[lowerTierType] then
+            CURRENCY.CRESTS[lowerTierType].needed = (CURRENCY.CRESTS[lowerTierType].needed or 0) + lowerTierCrests
+        end
 
         if addon.debugMode then
-            print(string.format("[FullyUpgraded] %s: %d levels × %d crests = %d total crests",
-                trackName, levelsToUpgrade, CRESTS_TO_UPGRADE, crestsNeeded))
+            print(string.format("[FullyUpgraded] %s: %d levels, %d %s crests + %d %s crests",
+                trackName, levelsToUpgrade, standardCrests, crestType,
+                lowerTierCrests, lowerTierType or "none"))
         end
     end
 end
@@ -546,7 +714,7 @@ C_Timer.After(0.1, function()
 end)
 
 -- Function to share upgrade needs in chat
-local function shareUpgradeNeeds()
+shareUpgradeNeeds = function()
     local hasNeeds = false
     local messageParts = {}
 

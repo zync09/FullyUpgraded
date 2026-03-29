@@ -1,4 +1,4 @@
-"Time is money, friend! And Fully Upgraded saves ya both! This nifty addon shows ya exactly how many upgrades yer gear's got left AND how many Dawncrests AND gold you'll need to get it maxed out. Updated for Midnight's new upgrade system—simpler, faster, more profitable! No more guesswork, no more wastin' time—or gold! Just strap it on, check yer gear, and get ready to make those bosses cough up the goods. Remember, friend: efficiency means profits, and profits mean ka-ching!"
+"Time is money, friend! And Fully Upgraded saves ya both! This nifty addon shows ya exactly how many upgrades yer gear's got left AND how many Dawncrests you'll need to get it maxed out. Updated for Midnight's new upgrade system—simpler, faster, more profitable! No more guesswork, no more wastin' time! Just strap it on, check yer gear, and get ready to make those bosses cough up the goods. Remember, friend: efficiency means profits, and profits mean ka-ching!"
 
 ![image](https://github.com/user-attachments/assets/98b16e52-b3a9-4f1a-b869-b70a7cd1bd23)
 
@@ -7,14 +7,30 @@
 
 ## Features (Midnight Edition)
 - **Shows upgrade potential** for all equipped items (X/6 format)
-- **Tracks Dawncrest requirements** across all 5 tiers (Adventurer → Veteran → Champion → Hero → Myth)
-- **Calculates gold costs** per item and total across all gear
+- **Tracks Dawncrest requirements** across all 5 tiers (Adventurer -> Veteran -> Champion -> Hero -> Myth)
+- **Dual-crest transitions** — shows when cheaper crests can be used at track boundaries
+- **Progress bar** showing overall upgrade completion percentage
+- **Per-slot breakdown tooltip** — hover the panel to see every slot's upgrade needs with crest icons
+- **Season progress tracking** — shows earned vs season maximum per crest type
+- **Weekly cap display** in currency panel rows (earned/100)
+- **Excess crest indicator** — shows conversion potential (45:1 ratio) in crest tooltips
+- **Color-coded currency counts** — green when you have enough crests
 - **Mythic+ run calculations** based on Dawncrest needs (flat 20 crests per upgrade)
 - **Raid rewards breakdown** for all 3 Midnight raids (The Voidspire, The Dreamrift, March on Quel'Danas)
-- **Real-time currency tracking** with weekly cap display (100 per crest type)
 - **Pre-season "Waiting for gear" state** when no season gear is equipped
-- **Simplified upgrade system** - one crest type per track, no split upgrades
 - **Customizable text position** via `/fu textpos` command
+
+## What's New in 2.3
+- **Dual-crest support** — tracks overlap at boundaries (level 2 accepts lower-tier, level 6 accepts higher-tier crest)
+- **Progress bar** under the title showing upgrade completion percentage
+- **Per-slot breakdown tooltip** — hover the master panel to see all slots with crest icons and upgrade counts
+- **Season progress** — shows total earned vs season maximum per crest type (increases weekly)
+- **Weekly cap indicator** in currency panel rows
+- **Excess crest indicator** — crest tooltip shows conversion potential to higher tiers
+- **Color-coded counts** — currency panel turns green when you have enough crests
+- **Corrected M+ crest ranges** — Champion M+2-3, Hero M+4-8, Myth M+9+ (verified from in-game)
+- **Updated crest sources** — all 5 tiers updated to match in-game currency tooltips
+- **Fixed minimum ilvl** — season gear now detected from ilvl 220 (was 224)
 
 ## What's New in 2.2
 - Added Adventurer Dawncrest tracking in currency panel (now shows all 5 tiers: A/V/C/H/M)
@@ -34,13 +50,13 @@
 - New Dawncrest currency system (5 tiers)
 - Flat 20 crests per upgrade (simplified from complex scaling)
 - Single crest type per track (no more split upgrades)
-- Gold cost tracking (10g-50g per upgrade depending on track)
-- Updated item level ranges for Midnight Season 1 (224-289)
+- Updated item level ranges for Midnight Season 1 (220-289)
 
 ## Usage
 - Open your character panel to see upgrade information
-- Hover over upgrade indicators to see detailed requirements (crests + gold)
+- Hover over upgrade indicators to see detailed crest requirements
 - Hover over Dawncrest display to see sources, raid rewards, and M+ runs needed
+- Hover over the panel title for a full per-slot breakdown with season progress
 - Left-click the panel to share your upgrade needs in chat
 - Right-click the panel for options
 - Use `/fu` or `/fullyupgraded` for commands
@@ -55,13 +71,13 @@
 - `/fu debug` - Toggle debug mode
 
 ## Track System (Midnight Season 1)
-All tracks have **6 upgrade levels** and use a **single Dawncrest type**:
+All tracks have **6 upgrade levels** with dual-crest transitions at boundaries:
 
-- **Adventurer**: 10g per upgrade, no crests required
-- **Veteran**: 20g per upgrade, Veteran Dawncrests
-- **Champion**: 30g per upgrade, Champion Dawncrests (Mythic 0, Normal Raid)
-- **Hero**: 40g per upgrade, Hero Dawncrests (M+ 2-6, Heroic Raid)
-- **Myth**: 50g per upgrade, Myth Dawncrests (M+ 7+, Mythic Raid)
+- **Adventurer**: Adventurer Dawncrests (Outdoor Events, Tier 4 Delves)
+- **Veteran**: Veteran Dawncrests (LFR, Heroic Dungeons, Delves 5-6)
+- **Champion**: Champion Dawncrests (M+2-3, Mythic 0, Normal Raid, Delves 7-10)
+- **Hero**: Hero Dawncrests (M+4-8, Heroic Raid, Tier 11 Delves)
+- **Myth**: Myth Dawncrests (M+9+, Mythic Raid)
 
 ## Raids (Midnight Season 1)
 - **The Voidspire** — 6 bosses (LFR/Normal/Heroic/Mythic)
@@ -69,7 +85,7 @@ All tracks have **6 upgrade levels** and use a **single Dawncrest type**:
 - **March on Quel'Danas** — 2 bosses (all difficulties)
 
 ## Crest Conversion
-Convert **45 lower-tier crests** → **1 higher-tier crest** (unlocked via seasonal achievements).
+Convert **45 lower-tier crests** -> **1 higher-tier crest** (unlocked via seasonal achievements).
 
 ## Support
 Report issues or suggestions on [GitHub](https://github.com/zync09/FullyUpgraded/issues)

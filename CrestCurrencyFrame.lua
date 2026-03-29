@@ -12,6 +12,7 @@ local function CreateCrestDisplay(parent)
         shortName = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal"),
         icon = parent:CreateTexture(nil, "ARTWORK"),
         count = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal"),
+        weeklyProgress = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal"),
         runsNeeded = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     }
 
@@ -39,6 +40,12 @@ local function CreateCrestDisplay(parent)
     display.count:SetPoint("LEFT", display.icon, "RIGHT", 6, 0)
     display.count:SetJustifyH("LEFT")
     display.count:SetTextColor(1, 1, 1)
+
+    -- Set up weekly progress text
+    display.weeklyProgress:SetFont(display.weeklyProgress:GetFont(), 10, "OUTLINE")
+    display.weeklyProgress:SetPoint("LEFT", display.count, "RIGHT", 4, 0)
+    display.weeklyProgress:SetJustifyH("LEFT")
+    display.weeklyProgress:SetTextColor(0.6, 0.6, 0.6)
 
     -- Set up runs needed text with right alignment
     display.runsNeeded:SetFont(display.count:GetFont(), 12, "OUTLINE")
@@ -87,6 +94,7 @@ local function PositionCrestDisplay(display, parent, index)
     display.shortName:Show()
     display.icon:Show()
     display.count:Show()
+    display.weeklyProgress:Show()
     display.runsNeeded:Show()
 end
 
@@ -128,13 +136,28 @@ local function UpdateCrestDisplay(display, info, crestData, crestType)
     -- Update icon
     display.icon:SetTexture(info.iconFileID)
 
-    -- Update count text (without runs calculation)
+    -- Update count text with color coding
     local needed = crestData.needed or 0
     local current = info.quantity or 0
     if addon.seasonGearCount == 0 then
         display.count:SetText(tostring(current))
     else
         display.count:SetText(current .. "/" .. needed)
+        -- Color code: green if have enough, default crest color if not
+        if current >= needed and needed > 0 then
+            display.count:SetTextColor(0.3, 1, 0.3)
+        end
+    end
+
+    -- Update weekly progress text
+    local earnedThisWeek = info.quantityEarnedThisWeek or 0
+    local weeklyCap = (info.maxWeeklyQuantity and info.maxWeeklyQuantity > 0) and info.maxWeeklyQuantity or 100
+    if earnedThisWeek >= weeklyCap then
+        display.weeklyProgress:SetText(string.format("(%d/%d)", earnedThisWeek, weeklyCap))
+        display.weeklyProgress:SetTextColor(0.3, 1, 0.3) -- Green when capped
+    else
+        display.weeklyProgress:SetText(string.format("(%d/%d)", earnedThisWeek, weeklyCap))
+        display.weeklyProgress:SetTextColor(0.6, 0.6, 0.6) -- Gray
     end
 
     -- Reset and update runs needed text
@@ -224,6 +247,7 @@ local function updateCrestCurrency(parent)
         if display.shortName then display.shortName:Hide() end
         if display.icon then display.icon:Hide() end
         if display.count then display.count:Hide() end
+        if display.weeklyProgress then display.weeklyProgress:Hide() end
         if display.runsNeeded then display.runsNeeded:Hide() end
     end
 
