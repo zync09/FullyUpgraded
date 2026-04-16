@@ -389,23 +389,7 @@ local tooltipProviders = {
         if tooltipInfo.type == "upgradeable" then
             GameTooltip:AddLine("Upgrade Requirements:")
 
-            -- Show lower-tier crest line first (level 2 dual-crest)
-            if tooltipInfo.requirements.lowerTier then
-                local lt = tooltipInfo.requirements.lowerTier
-                local ltBase = addon.CREST_BASE[lt.crestType]
-                if ltBase and CURRENCY.CRESTS[lt.crestType] then
-                    local currencyID = CURRENCY.CRESTS[lt.crestType].currencyID
-                    local success, currencyInfo = pcall(C_CurrencyInfo.GetCurrencyInfo, currencyID)
-                    if success and currencyInfo then
-                        local iconText = CreateTextureMarkup(currencyInfo.iconFileID, 64, 64, 16, 16, 0, 1, 0, 1)
-                        local currencyName = currencyInfo.name or (ltBase.baseName .. " Dawncrest")
-                        GameTooltip:AddLine(string.format("%s %d x |cFF%s%s|r",
-                            iconText, lt.count, ltBase.color, currencyName))
-                    end
-                end
-            end
-
-            -- Show primary crest line
+            -- Show primary crest line (full cost using track's own crest type)
             if tooltipInfo.requirements.standard then
                 local req = tooltipInfo.requirements.standard
                 local baseData = addon.CREST_BASE[req.crestType]
@@ -422,17 +406,6 @@ local tooltipProviders = {
                     end
                 end
 
-                -- Show level 6 dual-crest alternative (level 2 is already split above)
-                local alts = tooltipInfo.requirements.alternatives
-                if alts and alts.highLevel then
-                    local altBase = addon.CREST_BASE[alts.highLevel.altCrestType]
-                    if altBase then
-                        GameTooltip:AddLine(
-                            string.format("  Level %d also accepts |cFF%s%s|r Dawncrest",
-                                alts.highLevel.targetLevel, altBase.color, altBase.baseName),
-                            0.7, 0.7, 0.7)
-                    end
-                end
 
             end
         end
@@ -635,32 +608,17 @@ local function processUpgradeTrack(track, levelsToUpgrade, trackName, currentNum
 
     if track.crestType then
         local crestType = track.crestType
-        local maxNum = track.upgradeLevels or 6
-        local orderIndex = addon.CREST_ORDER_INDEX[crestType]
-        local lowerTierType = orderIndex and addon.CREST_ORDER[orderIndex - 1]
 
-        local standardCrests = 0
-        local lowerTierCrests = 0
-
-        for targetLevel = currentNum + 1, maxNum do
-            if targetLevel == 2 and lowerTierType then
-                -- Level 1→2: assign to lower tier (cheaper to farm)
-                lowerTierCrests = lowerTierCrests + CRESTS_TO_UPGRADE
-            else
-                standardCrests = standardCrests + CRESTS_TO_UPGRADE
-            end
-        end
+        -- All upgrade levels use the track's own crest type as the primary cost
+        -- Dual-crest alternatives (level 2 accepting lower tier) are optional,
+        -- tracked separately in CharacterFrame tooltip data
+        local standardCrests = levelsToUpgrade * CRESTS_TO_UPGRADE
 
         CURRENCY.CRESTS[crestType].needed = (CURRENCY.CRESTS[crestType].needed or 0) + standardCrests
 
-        if lowerTierCrests > 0 and CURRENCY.CRESTS[lowerTierType] then
-            CURRENCY.CRESTS[lowerTierType].needed = (CURRENCY.CRESTS[lowerTierType].needed or 0) + lowerTierCrests
-        end
-
         if addon.debugMode then
-            print(string.format("[FullyUpgraded] %s: %d levels, %d %s crests + %d %s crests",
-                trackName, levelsToUpgrade, standardCrests, crestType,
-                lowerTierCrests, lowerTierType or "none"))
+            print(string.format("[FullyUpgraded] %s: %d levels, %d %s crests",
+                trackName, levelsToUpgrade, standardCrests, crestType))
         end
     end
 end

@@ -11,7 +11,7 @@ addon.TOOLTIP_CACHE_TTL = 5            -- Tooltip cache time-to-live in seconds
 
 -- UI settings
 addon.FONT_SIZE = 12
-addon.FONT_FLAGS = "OUTLINE, THICKOUTLINE"
+addon.FONT_FLAGS = "THICKOUTLINE"
 addon.FRAME_PADDING = 12
 addon.MASTER_FRAME_MIN_WIDTH = 230
 addon.CURRENCY_FRAME_HEIGHT = 20

@@ -139,41 +139,7 @@ local function cleanupUpgradeTexts()
     end
 end
 
--- Calculate dual-crest alternatives for an upgrade track
--- Level 1→2 can use lower-tier crest, level 5→6 can use higher-tier crest
-local function getDualCrestAlternatives(crestType, currentNum, maxNum)
-    local alternatives = {}
-    local orderIndex = addon.CREST_ORDER_INDEX[crestType]
-    if not orderIndex then return alternatives end
-
-    -- Level 1→2: can also use previous (lower) tier crest
-    if currentNum < 2 then
-        local prevType = addon.CREST_ORDER[orderIndex - 1]
-        if prevType then
-            alternatives.lowLevel = {
-                targetLevel = 2,
-                altCrestType = prevType,
-                count = addon.CRESTS_TO_UPGRADE
-            }
-        end
-    end
-
-    -- Level 5→6: can also use next (higher) tier crest
-    if currentNum < maxNum then
-        local nextType = addon.CREST_ORDER[orderIndex + 1]
-        if nextType then
-            alternatives.highLevel = {
-                targetLevel = maxNum,
-                altCrestType = nextType,
-                count = addon.CRESTS_TO_UPGRADE
-            }
-        end
-    end
-
-    return alternatives
-end
-
--- Process an upgradeable item (Midnight - with dual-crest support)
+-- Process an upgradeable item (Midnight)
 local function processUpgradeableItem(button, track, trackName, currentNum, maxNum, levelsToUpgrade)
     if not button or not track or not trackName then
         return
@@ -202,42 +168,20 @@ local function processUpgradeableItem(button, track, trackName, currentNum, maxN
         requirements = {}
     }
 
-    -- Midnight system: split crest costs at dual-crest transition levels
+    -- Midnight system: all levels use the track's own crest type as primary cost
+    -- Dual-crest alternatives shown separately as optional info
     if track.crestType then
         local crestType = track.crestType
         local crestCurrency = addon.CURRENCY.CRESTS[crestType]
         local goldCost = track.goldCost or 0
-        local orderIndex = addon.CREST_ORDER_INDEX[crestType]
-        local lowerTierType = orderIndex and addon.CREST_ORDER[orderIndex - 1]
-
-        -- Calculate split: level 1→2 goes to lower tier if available
-        local standardCount = levelsToUpgrade * addon.CRESTS_TO_UPGRADE
-        local lowerTierCount = 0
-        if currentNum < 2 and lowerTierType then
-            lowerTierCount = addon.CRESTS_TO_UPGRADE
-            standardCount = standardCount - addon.CRESTS_TO_UPGRADE
-        end
 
         tooltipData[button.slot].requirements.standard = {
             crestType = crestType,
-            count = standardCount,
+            count = levelsToUpgrade * addon.CRESTS_TO_UPGRADE,
             mythicLevel = crestCurrency and crestCurrency.mythicLevel or 0,
             goldCost = levelsToUpgrade * goldCost
         }
 
-        -- Lower-tier crest line for level 2
-        if lowerTierCount > 0 then
-            tooltipData[button.slot].requirements.lowerTier = {
-                crestType = lowerTierType,
-                count = lowerTierCount
-            }
-        end
-
-        -- Calculate dual-crest alternatives (level 6 → higher tier option)
-        local alternatives = getDualCrestAlternatives(crestType, currentNum, maxNum)
-        if next(alternatives) then
-            tooltipData[button.slot].requirements.alternatives = alternatives
-        end
     end
 
     -- Accumulate total gold cost

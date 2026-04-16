@@ -2,7 +2,7 @@
 ## Title: Fully Upgraded
 ## Notes: Track gear upgrades for Midnight - Shows upgrades needed, Dawncrest costs, and M+ runs per item
 ## Author: Zyncx (Frostmourne)
-## Version: 2.3.0
+## Version: 2.3.1
 ## SavedVariables: FullyUpgradedDB
 ## IconTexture: Interface\AddOns\FullyUpgraded\Media\icon.blp
 
