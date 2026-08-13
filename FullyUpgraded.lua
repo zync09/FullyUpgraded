@@ -400,7 +400,7 @@ local tooltipProviders = {
                     local success, currencyInfo = pcall(C_CurrencyInfo.GetCurrencyInfo, currencyID)
                     if success and currencyInfo then
                         local iconText = CreateTextureMarkup(currencyInfo.iconFileID, 64, 64, 16, 16, 0, 1, 0, 1)
-                        local currencyName = currencyInfo.name or (baseData.baseName .. " Dawncrest")
+                        local currencyName = currencyInfo.name or (baseData.baseName .. " " .. addon.CREST_SUFFIX)
                         GameTooltip:AddLine(string.format("%s %d x |cFF%s%s%s|r",
                             iconText, req.count, baseData.color, currencyName, mythicText))
                     end
@@ -598,8 +598,8 @@ end)
 masterFrame:SetScript("OnLeave", hideTooltip)
 
 -- Process a single upgrade track (Midnight - flat 20 crests per upgrade)
--- Dual-crest transitions: level 1→2 assigned to lower tier (cheaper),
--- level 5→6 kept as same tier (wouldn't waste higher-tier crests).
+-- Season 2: Mistcrests are track-locked (no dual-crest transitions at boundaries);
+-- every upgrade on a track costs the track's own crest type.
 local function processUpgradeTrack(track, levelsToUpgrade, trackName, currentNum)
     -- Add to total upgrades counter
     if levelsToUpgrade > 0 then
@@ -609,9 +609,7 @@ local function processUpgradeTrack(track, levelsToUpgrade, trackName, currentNum
     if track.crestType then
         local crestType = track.crestType
 
-        -- All upgrade levels use the track's own crest type as the primary cost
-        -- Dual-crest alternatives (level 2 accepting lower tier) are optional,
-        -- tracked separately in CharacterFrame tooltip data
+        -- All upgrade levels use the track's own crest type (track-locked in Season 2)
         local standardCrests = levelsToUpgrade * CRESTS_TO_UPGRADE
 
         CURRENCY.CRESTS[crestType].needed = (CURRENCY.CRESTS[crestType].needed or 0) + standardCrests
@@ -914,7 +912,8 @@ f:SetScript("OnDisable", CleanupAddon)
 
 -- Get the current season's item level range
 local function getCurrentSeasonItemLevelRange()
-    return SEASONS[1].MIN_ILVL, SEASONS[1].MAX_ILVL
+    local season = SEASONS[addon.CURRENT_SEASON]
+    return season.MIN_ILVL, season.MAX_ILVL
 end
 
 -- Export functions to addon namespace

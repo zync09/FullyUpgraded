@@ -157,7 +157,6 @@ local function processUpgradeableItem(button, track, trackName, currentNum, maxN
     button.background:Show()
     button:Show()
 
-    -- Tooltip data with dual-crest alternatives
     tooltipData[button.slot] = {
         type = "upgradeable",
         track = track,
@@ -168,8 +167,7 @@ local function processUpgradeableItem(button, track, trackName, currentNum, maxN
         requirements = {}
     }
 
-    -- Midnight system: all levels use the track's own crest type as primary cost
-    -- Dual-crest alternatives shown separately as optional info
+    -- Midnight Season 2: Mistcrests are track-locked, all levels use the track's own crest type
     if track.crestType then
         local crestType = track.crestType
         local crestCurrency = addon.CURRENCY.CRESTS[crestType]
@@ -336,7 +334,8 @@ local function updateAllUpgradeTexts()
     -- Update title with total upgrades and gold cost (three-state)
     if addon.titleText then
         if addon.seasonGearCount == 0 then
-            addon.titleText:SetText(string.format("Waiting for gear (%d+)", addon.SEASONS[1].MIN_ILVL))
+            addon.titleText:SetText(string.format("Waiting for gear (%d+)",
+                addon.SEASONS[addon.CURRENT_SEASON].MIN_ILVL))
         elseif addon.totalUpgrades > 0 then
             addon.titleText:SetText(string.format("Fully Upgraded in %d", addon.totalUpgrades))
         else

@@ -1,4 +1,4 @@
-"Time is money, friend! And Fully Upgraded saves ya both! This nifty addon shows ya exactly how many upgrades yer gear's got left AND how many Dawncrests you'll need to get it maxed out. Updated for Midnight's new upgrade system—simpler, faster, more profitable! No more guesswork, no more wastin' time! Just strap it on, check yer gear, and get ready to make those bosses cough up the goods. Remember, friend: efficiency means profits, and profits mean ka-ching!"
+"Time is money, friend! And Fully Upgraded saves ya both! This nifty addon shows ya exactly how many upgrades yer gear's got left AND how many Mistcrests you'll need to get it maxed out. Updated for Midnight's new upgrade system—simpler, faster, more profitable! No more guesswork, no more wastin' time! Just strap it on, check yer gear, and get ready to make those bosses cough up the goods. Remember, friend: efficiency means profits, and profits mean ka-ching!"
 
 ![image](https://github.com/user-attachments/assets/98b16e52-b3a9-4f1a-b869-b70a7cd1bd23)
 
@@ -7,18 +7,26 @@
 
 ## Features (Midnight Edition)
 - **Shows upgrade potential** for all equipped items (X/6 format)
-- **Tracks Dawncrest requirements** across all 5 tiers (Adventurer -> Veteran -> Champion -> Hero -> Myth)
-- **Dual-crest transitions** — shows when cheaper crests can be used at track boundaries
+- **Tracks Mistcrest requirements** across all 5 tiers (Adventurer -> Veteran -> Champion -> Hero -> Myth)
 - **Progress bar** showing overall upgrade completion percentage
 - **Per-slot breakdown tooltip** — hover the panel to see every slot's upgrade needs with crest icons
 - **Season progress tracking** — shows earned vs season maximum per crest type
 - **Weekly cap display** in currency panel rows (earned/100)
-- **Excess crest indicator** — shows conversion potential (45:1 ratio) in crest tooltips
+- **Excess crest indicator** — shows conversion potential (3:1 ratio) in crest tooltips
 - **Color-coded currency counts** — green when you have enough crests
-- **Mythic+ run calculations** based on Dawncrest needs (flat 20 crests per upgrade)
-- **Raid rewards breakdown** for all 3 Midnight raids (The Voidspire, The Dreamrift, March on Quel'Danas)
+- **Mythic+ run calculations** based on Mistcrest needs (flat 20 crests per upgrade)
+- **Raid rewards breakdown** for The Venomous Abyss (Season 2 raid, 8 bosses)
 - **Pre-season "Waiting for gear" state** when no season gear is equipped
 - **Customizable text position** via `/fu textpos` command
+
+## What's New in 2.4 (Midnight Season 2)
+- **Mistcrests replace Dawncrests** — new currency IDs (3442-3446), leftover Dawncrests do not convert
+- **The Venomous Abyss** — new 8-boss raid with per-boss crest rewards in tooltips
+- **Season 2 item levels** — season gear detected from ilvl 266 up to 344 (Very Rare drops)
+- **Crest conversion now 3:1** (was 45:1) — unlocks per tier after maxing that tier in every slot
+- **Track-locked crests** — dual-crest transitions removed; each track only uses its own Mistcrest
+- **Updated crest sources** — including new Trovehunter's Bounty delve rewards
+- **Interface bumped to 12.1** (120100)
 
 ## What's New in 2.3
 - **Dual-crest support** — tracks overlap at boundaries (level 2 accepts lower-tier, level 6 accepts higher-tier crest)
@@ -55,7 +63,7 @@
 ## Usage
 - Open your character panel to see upgrade information
 - Hover over upgrade indicators to see detailed crest requirements
-- Hover over Dawncrest display to see sources, raid rewards, and M+ runs needed
+- Hover over Mistcrest display to see sources, raid rewards, and M+ runs needed
 - Hover over the panel title for a full per-slot breakdown with season progress
 - Left-click the panel to share your upgrade needs in chat
 - Right-click the panel for options
@@ -70,22 +78,21 @@
 - `/fu currency` - Refresh currency information
 - `/fu debug` - Toggle debug mode
 
-## Track System (Midnight Season 1)
-All tracks have **6 upgrade levels** with dual-crest transitions at boundaries:
+## Track System (Midnight Season 2)
+All tracks have **6 upgrade levels**; each track only uses its own Mistcrest type:
 
-- **Adventurer**: Adventurer Dawncrests (Outdoor Events, Tier 4 Delves)
-- **Veteran**: Veteran Dawncrests (LFR, Heroic Dungeons, Delves 5-6)
-- **Champion**: Champion Dawncrests (M+2-3, Mythic 0, Normal Raid, Delves 7-10)
-- **Hero**: Hero Dawncrests (M+4-8, Heroic Raid, Tier 11 Delves)
-- **Myth**: Myth Dawncrests (M+9+, Mythic Raid)
+- **Adventurer**: Adventurer Mistcrests (Outdoor Events, Tier 4 Delves)
+- **Veteran**: Veteran Mistcrests (LFR, Heroic Dungeons, Delves 5-6, Trovehunter's Bounty 4-5)
+- **Champion**: Champion Mistcrests (M+2-3, Mythic 0, Normal Raid, Delves 7-10, Trovehunter's Bounty 6-7)
+- **Hero**: Hero Mistcrests (M+4-8, Heroic Raid, Tier 11 Delves, Trovehunter's Bounty 8+)
+- **Myth**: Myth Mistcrests (M+9+, Mythic Raid)
 
-## Raids (Midnight Season 1)
-- **The Voidspire** — 6 bosses (LFR/Normal/Heroic/Mythic)
-- **The Dreamrift** — 1 boss (LFR/Normal/Heroic/Mythic)
-- **March on Quel'Danas** — 2 bosses (all difficulties)
+## Raid (Midnight Season 2)
+- **The Venomous Abyss** — 8 bosses (LFR/Normal/Heroic/Mythic): Nek'zali the Soulcoiler, Entombed Sentinels, The Lost Explorers, Vashnik the Malignant, Sszorak, The Twin Fangs, The Coiled Altar, Ula'tek
+- On Normal/Heroic the final boss also awards crests of the next tier up
 
 ## Crest Conversion
-Convert **45 lower-tier crests** -> **1 higher-tier crest** (unlocked via seasonal achievements).
+Convert **3 lower-tier crests** -> **1 higher-tier crest**, unlocked per tier after reaching that tier's max item level in every slot.
 
 ## Support
 Report issues or suggestions on [GitHub](https://github.com/zync09/FullyUpgraded/issues)

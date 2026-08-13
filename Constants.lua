@@ -2,7 +2,9 @@ local addonName, addon = ...
 
 -- Base upgrade constants (Midnight expansion)
 addon.CRESTS_TO_UPGRADE = 20  -- Flat 20 crests per upgrade level
-addon.CRESTS_CONVERSION_UP = 45  -- 45 lower-tier crests convert to 1 higher-tier crest
+-- Season 2: 3 lower-tier Mistcrests convert to 1 higher-tier (was 45:1 in Season 1).
+-- Conversion unlocks per tier after reaching that tier's max ilvl in every slot (feat of strength).
+addon.CRESTS_CONVERSION_UP = 3
 
 -- Cache settings (optimized for performance)
 addon.CACHE_TIMEOUT = 3                -- Cache timeout in seconds
@@ -31,11 +33,18 @@ addon.TEXT_BACKGROUND = {
     padding = 2,              -- Pixels of padding around text
 }
 
--- Midnight expansion item level range
+-- Midnight expansion item level ranges
+addon.CURRENT_SEASON = 2
 addon.SEASONS = {
     [1] = {  -- Midnight Season 1
         MIN_ILVL = 220,
         MAX_ILVL = 289
+    },
+    [2] = {  -- Midnight Season 2 (12.1) — Adventurer 1/6 = 266, Myth 6/6 = 334,
+             -- Very Rare / final-boss Mythic drops up to 344.
+             -- NOTE: 266-289 overlaps Season 1 gear; verify how S1 leftovers display at launch.
+        MIN_ILVL = 266,
+        MAX_ILVL = 344
     }
 }
 
@@ -50,23 +59,23 @@ addon.EQUIPMENT_SLOTS = {
 
 -- Common crest values
 local CREST_COMMON = {
-    SUFFIX = "Dawncrest",
-    WEEKLY_CAP = 100  -- Increased from 90 in War Within
+    SUFFIX = "Mistcrest",  -- Season 2 currency (replaced Dawncrests; no conversion from S1)
+    WEEKLY_CAP = 100       -- Per crest type; season maximum grows by 100/week (catch-up)
 }
+addon.CREST_SUFFIX = CREST_COMMON.SUFFIX
 
--- Base crest definitions (Midnight Dawncrests)
+-- Base crest definitions (Midnight Season 2 Mistcrests, currency IDs 3442-3446)
 addon.CREST_BASE = {
     ADVENTURER = {
         baseName = "Adventurer",
         shortCode = "A",
         color = "ffffff",  -- White
         colorRGB = { 1, 1, 1 },
-        currencyID = 3383,
+        currencyID = 3442,
         mythicLevel = 0,  -- No mythic+ requirement
         sources = {
             "Repeatable Outdoor Events",
-            "Delves (Tier 4)",
-            "Prey Hunts (Normal)"
+            "Delves (Tier 4)"
         },
         upgradesTo = "VETERAN"
     },
@@ -75,14 +84,14 @@ addon.CREST_BASE = {
         shortCode = "V",
         color = "1eff00",  -- Green
         colorRGB = { 0.118, 1, 0 },
-        currencyID = 3341,
+        currencyID = 3443,
         mythicLevel = 0,  -- No mythic+ requirement
         sources = {
             "Repeatable Outdoor Events",
-            "Raid Finder",
+            "Raid Finder (The Venomous Abyss)",
             "Heroic Season Dungeons",
             "Delves (Tiers 5-6)",
-            "Prey Hunts (Hard)"
+            "Trovehunter's Bounty (Tiers 4-5)"
         },
         upgradesTo = "CHAMPION"
     },
@@ -91,13 +100,15 @@ addon.CREST_BASE = {
         shortCode = "C",
         color = "0070dd",  -- Blue
         colorRGB = { 0, 0.439, 0.867 },
-        currencyID = 3343,
+        currencyID = 3444,
         mythicLevel = 2,  -- Mythic+ 2-3
         sources = {
+            "Weekly Outdoor Events",
             "Mythic 0 Dungeons",
             "Mythic+ 2-3",
             "Normal Raid",
-            "Delves (Tiers 7-10)"
+            "Delves (Tiers 7-10)",
+            "Trovehunter's Bounty (Tiers 6-7)"
         },
         upgradesTo = "HERO"
     },
@@ -106,12 +117,13 @@ addon.CREST_BASE = {
         shortCode = "H",
         color = "a335ee",  -- Purple
         colorRGB = { 0.639, 0.208, 0.933 },
-        currencyID = 3345,
+        currencyID = 3445,
         mythicLevel = 4,  -- Mythic+ 4-8
         sources = {
             "Heroic Raid",
             "Mythic+ 4-8",
-            "Delves (Tier 11)"
+            "Delves (Tier 11)",
+            "Trovehunter's Bounty (Tiers 8+)"
         },
         upgradesTo = "MYTH"
     },
@@ -120,7 +132,7 @@ addon.CREST_BASE = {
         shortCode = "M",
         color = "ff8000",  -- Orange
         colorRGB = { 1, 0.502, 0 },
-        currencyID = 3347,
+        currencyID = 3446,
         mythicLevel = 9,  -- Mythic+ 9+
         sources = {
             "Mythic Raid",
@@ -193,6 +205,7 @@ addon.CURRENCY = {
 }
 
 -- Gold costs per upgrade (Midnight system - replaces Valorstones)
+-- Season 2: no reported change; verify in-game at launch
 addon.GOLD_COSTS = {
     ADVENTURER = 10,
     VETERAN = 20,
@@ -201,8 +214,11 @@ addon.GOLD_COSTS = {
     MYTH = 50
 }
 
--- Crest rewards from Mythic+ (Midnight Season 1)
--- Champion from M+2-3, Hero from M+4-8, Myth from M+9-12
+-- Crest rewards from Mythic+ (Midnight Season 2)
+-- Brackets match the in-game currency tooltips: Champion M+2-3, Hero M+4-8, Myth M+9+
+-- (Method's S2 guide instead lists Hero from +2-6 and Myth from +7+ — same conflict
+-- Wowhead had in S1 before in-game data confirmed the bracket layout below.
+-- VERIFY IN-GAME at season launch and adjust if the brackets shifted.)
 -- Reward amounts are estimates - update when confirmed
 addon.CREST_REWARDS = {
     CHAMPION = {
@@ -276,11 +292,14 @@ addon.UPGRADE_TRACKS = (function()
     return tracks
 end)()
 
--- Raid boss rewards information (Midnight Season 1)
--- Per-boss crest amounts are estimated until live data is available
+-- Raid boss rewards information (Midnight Season 2 - The Venomous Abyss, 8 bosses)
+-- Crests scale with how deep into the raid the boss is (10-20).
+-- Per-boss amounts are estimates - update when live data is available.
+-- Note: on Normal/Heroic the final boss (Ula'tek) also awards ~10 crests of the
+-- next tier up (Hero on Normal, Myth on Heroic) - not modeled in this table.
 addon.RAID_REWARDS = {
-    THE_VOIDSPIRE = {
-        name = "The Voidspire",
+    THE_VENOMOUS_ABYSS = {
+        name = "The Venomous Abyss",
         difficulties = {
             LFR = "VETERAN",
             NORMAL = "CHAMPION",
@@ -288,37 +307,14 @@ addon.RAID_REWARDS = {
             MYTHIC = "MYTH"
         },
         bosses = {
-            { name = "Imperator Averzian", reward = 10 },
-            { name = "Vorasius", reward = 10 },
-            { name = "Fallen-King Salhadaar", reward = 10 },
-            { name = "Vaelgor & Ezzorak", reward = 10 },
-            { name = "Lightblinded Vanguard", reward = 10 },
-            { name = "Crown of the Cosmos", reward = 15 }
-        }
-    },
-    THE_DREAMRIFT = {
-        name = "The Dreamrift",
-        difficulties = {
-            LFR = "VETERAN",
-            NORMAL = "CHAMPION",
-            HEROIC = "HERO",
-            MYTHIC = "MYTH"
-        },
-        bosses = {
-            { name = "Chimaerus the Undreamt God", reward = 15 }
-        }
-    },
-    MARCH_ON_QUELDANAS = {
-        name = "March on Quel'Danas",
-        difficulties = {
-            LFR = "VETERAN",
-            NORMAL = "CHAMPION",
-            HEROIC = "HERO",
-            MYTHIC = "MYTH"
-        },
-        bosses = {
-            { name = "Belo'ren, Child of Al'ar", reward = 10 },
-            { name = "Midnight Falls", reward = 15 }
+            { name = "Nek'zali the Soulcoiler", reward = 10 },
+            { name = "Entombed Sentinels", reward = 10 },
+            { name = "The Lost Explorers", reward = 10 },
+            { name = "Vashnik the Malignant", reward = 15 },
+            { name = "Sszorak", reward = 15 },
+            { name = "The Twin Fangs", reward = 15 },
+            { name = "The Coiled Altar", reward = 20 },
+            { name = "Ula'tek", reward = 20 }
         }
     }
 }
