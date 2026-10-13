@@ -492,7 +492,11 @@ local tooltipProviders = {
 
                 local rewards = addon.CREST_REWARDS[crestType]
                 if rewards then
-                    local remaining = crestData.needed and math.max(0, crestData.needed - crestData.current - (crestData.upgraded or 0)) or 0
+                    -- Runs are based on the real shortfall only. Do not subtract the
+                    -- conversion credit from the lower tier: conversion is locked behind
+                    -- a feat of strength and the lower tier's crests are usually needed
+                    -- for its own upgrades, so counting them understated the runs needed.
+                    local remaining = crestData.needed and math.max(0, crestData.needed - (crestData.current or 0)) or 0
 
                     for level = baseData.mythicLevel, 12 do
                         if rewards[level] then
